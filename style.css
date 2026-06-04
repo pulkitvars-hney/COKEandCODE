@@ -1,0 +1,78 @@
+* {
+    margin: 0px;
+    padding: 0px;
+    box-sizing: border-box;
+}
+body{
+ background: #0f2e52;
+background: linear-gradient(90deg,rgba(15, 46, 82, 1) 21%, rgba(44, 85, 138, 1) 72%, rgba(98, 116, 163, 1) 96%);
+ min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+
+}
+.heading{
+    margin: auto;
+    text-align: center;
+    padding: 10px;
+    margin-bottom :.5rem;
+}
+.heading h1{
+    padding-bottom: 1rem;
+  color: white;
+
+}
+.heading h2{
+     color: #dbeafe;
+}
+.guessingblock{
+     min-height: 300px;
+ width: 90%;
+    color: white;
+    max-width: 500px;
+     margin: auto;
+    display:flex;
+    flex-direction: column;
+    text-align: center;
+    justify-content: center;
+   border: 2px solid rgba(255,255,255,0.2);
+    padding: 20px;
+    border-radius: 14px;
+box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+     background: #18406e;
+background: linear-gradient(90deg,rgba(24, 64, 110, 1) 20%, rgba(44, 85, 138, 1) 72%, rgba(98, 116, 163, 1) 96%);
+
+}
+#inputnumber{
+        width: 100%;
+    padding: 10px;
+    text-align: center;
+     border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+#subt{
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+     transition: transform 0.2s ease;
+}
+.form{
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+.result{
+    margin-top: 20px;
+    color: white;
+}
+
+.result p{
+    margin: 10px 0;
+    
+}
+#subt:hover{
+    transform: scale(1.03);
+}

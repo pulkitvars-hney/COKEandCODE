@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess the Number</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+    <header class="heading ">
+        <h1>guess the number</h1>
+        <h2> the computer will generate a random number and you have to guess the number </h2>
+    </header>
+    <main class="guessingblock">
+        <form class="form">
+            <label for="inputnumber" id="guesss">Guess the number </label><br>
+            <input type="number" placeholder="enter your guess " id="inputnumber" required>
+            <button type="submit" id="subt">submit your guess </button>
+        </form>
+        <section class="result">
+            <p> prev guess:<span class="prevguess"></span></p>
+            <p>remaining guess: <span class="remainingguess">10</span></p>
+            <p class="horl"> </p>
+        </section>
+    </main>
+</body>
+
+</html>
