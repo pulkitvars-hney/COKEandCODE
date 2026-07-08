@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const app=require('./src/app');
+
 const connectToDatabase=require('./src/db/database');
 
 async function startserever(){
@@ -11,4 +12,5 @@ async function startserever(){
         console.log("server is running on port 3000");
     })
 }
+
 startserever();
