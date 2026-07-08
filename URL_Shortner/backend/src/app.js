@@ -4,6 +4,6 @@ const router=require("./routes/shortUrl.route");
 const app =express();
 app.use(express.json());
 
-app.use("/api/create", router);
+app.use("/", router);
 
 module.exports=app;

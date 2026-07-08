@@ -1,5 +1,4 @@
-const urlmodel=require("../models/models"); 
-const nanoid=require("nanoid");
+const createurlservice=require("../services/shorturlhelper.service")
 async function createShortUrl(req,res){
     const {originalUrl}=req.body;
     // const originalUrl=req.body; 
@@ -8,12 +7,20 @@ async function createShortUrl(req,res){
     // ! so i will destructure the object and get the originalUrl property from it
     //* originalurl will conatin{ "originalurl":"the url"} and when i try to insert it in if will have error because i have marked original uri as a string
     
-    const shortUrl=nanoid.nanoid(7);
-    const url=new urlmodel({
-        originalUrl,
-        shortUrl
-    });
-    await url.save();
+    const shortUrl=await createurlservice.CreateShortUrl(originalUrl);
+    
     res.status(201).json({shortUrl});
 }
-module.exports={createShortUrl};
+
+async function redirectShortUrl(req,res){
+    const {shortUrl}=req.params;
+    const url=await createurlservice.GetOriginalUrl(shortUrl);
+
+    if(!url){
+        return res.status(404).send("NOT FOUND");
+    }
+
+    res.redirect(url.originalUrl);
+}
+
+module.exports={createShortUrl, redirectShortUrl};
