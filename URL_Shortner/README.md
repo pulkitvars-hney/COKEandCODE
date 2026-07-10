@@ -1,59 +1,83 @@
-# URL Shortner
+# URL Shortener
 
-Node.js backend for creating short URLs and redirecting them back to the original URL.
+A simple backend API for creating short URLs and redirecting users back to the original links.
 
-## Current Stack
+This project is being built with Node.js, Express, MongoDB, and Mongoose. It is currently focused on the backend API layer, with URL creation, redirection, click tracking, and centralized error handling already started.
+
+## Project Status
+
+This project is currently in development.
+
+Completed so far:
+
+- Basic Express server setup
+- MongoDB connection with Mongoose
+- URL model for storing original URLs and short codes
+- Short URL generation using `nanoid`
+- API endpoint to create a short URL
+- API endpoint to redirect a short URL
+- Click count increment on redirect
+- Centralized error handling middleware
+- 404 handling for unknown routes
+
+Still planned:
+
+- Stronger validation for invalid URLs
+- Duplicate URL handling
+- User authentication support
+- Environment-based server port
+- Tests for create and redirect behavior
+- Frontend or API documentation page
+
+## Tech Stack
 
 - Node.js
 - Express
-- MongoDB with Mongoose
-- dotenv for environment variables
-- nanoid for short code generation
-- nodemon for local development
+- MongoDB
+- Mongoose
+- dotenv
+- nanoid
+- nodemon
 
-## Project Map
+## Folder Structure
 
 ```text
 URL_Shortner/
   backend/
-    server.js                         # Starts the server and connects to MongoDB
-    package.json                      # Backend dependencies and scripts
-    planingroutes.txt                 # Rough route notes
+    server.js
+    package.json
     src/
-      app.js                          # Express app setup and route mounting
+      app.js
       db/
-        database.js                   # MongoDB connection
+        database.js
       routes/
-        shortUrl.route.js             # API routes
+        shortUrl.route.js
       controllers/
-        shorturl.controller.js        # Request/response handlers
+        shorturl.controller.js
       services/
-        shorturlhelper.service.js     # Business logic for creating and finding URLs
-      middlewares/
-        errorHandler.js               # Central 404 and error response middleware
-      utils/
-        ApiError.js                   # Error class for HTTP status-aware errors
-        asyncHandler.js               # Wraps async controllers and forwards errors
+        shorturlhelper.service.js
+      DAo/
+        saveurl.js
       models/
-        models.js                     # Mongoose URL model
+        models.js
+      middlewares/
+        errorHandler.js
+      utils/
+        ApiError.js
+        asyncHandler.js
       utiles/
-        nanoid.js                     # Local wrapper around the nanoid package
+        nanoid.js
 ```
 
-## Request Flow
+## API Endpoints
 
-### Create a short URL
+### Create Short URL
 
-```text
+```http
 POST /api/create/check
-  -> routes/shortUrl.route.js
-  -> controllers/shorturl.controller.js
-  -> services/shorturlhelper.service.js
-  -> models/models.js
-  -> MongoDB
 ```
 
-Expected body:
+Request body:
 
 ```json
 {
@@ -61,32 +85,68 @@ Expected body:
 }
 ```
 
-The response returns a generated short URL.
+Example response:
 
-If `originalUrl` is missing, the controller throws an `ApiError` and the global error handler returns a `400` JSON response.
-
-### Redirect a short URL
-
-```text
-GET /api/:shortUrl
-  -> routes/shortUrl.route.js
-  -> controllers/shorturl.controller.js
-  -> services/shorturlhelper.service.js
-  -> models/models.js
-  -> MongoDB
-  -> redirects to originalUrl
+```json
+{
+  "shortUrl": "http://localhost:3000/api/abc1234"
+}
 ```
 
-If the short code does not exist, the controller throws an `ApiError` and the global error handler returns a `404` JSON response.
+### Redirect Short URL
+
+```http
+GET /api/:shortUrl
+```
+
+Example:
+
+```http
+GET /api/abc1234
+```
+
+If the short code exists, the server redirects to the original URL and increments the click count.
 
 ## Error Handling
 
-Async route handlers are wrapped with `asyncHandler`, so thrown errors and rejected promises are forwarded to Express automatically.
+The project uses centralized error handling.
 
-Application errors should use `ApiError(statusCode, message)` when the route can return a known client-facing status code. Unmatched routes go through `notFoundHandler`, and all errors finish in the global `errorHandler` middleware.
+- `ApiError` is used for known application errors like bad requests or missing URLs.
+- `asyncHandler` forwards async controller errors to Express automatically.
+- `notFoundHandler` handles unknown routes.
+- `errorHandler` sends a consistent JSON error response.
+
+Example error response:
+
+```json
+{
+  "success": false,
+  "message": "Short URL not found"
+}
+```
+
+When `NODE_ENV=development`, the response can also include a stack trace for debugging.
 
 ## Environment Variables
 
+Create a `.env` file inside `backend/`.
+
+```env
+mongodb_key=your_mongodb_connection_string
+APP_KEY=http://localhost:3000/api/
+```
+
+## Run Locally
+
+From the backend folder:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+The server currently listens on port `3000`.
 
 ## Development Notes
 
