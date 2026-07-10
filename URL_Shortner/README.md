@@ -87,24 +87,6 @@ Application errors should use `ApiError(statusCode, message)` when the route can
 
 ## Environment Variables
 
-Create a `.env` file inside `backend/`.
-
-```env
-mongodb_key=your_mongodb_connection_string
-APP_KEY=http://localhost:3000/api/
-```
-
-## Run Locally
-
-From the backend folder:
-
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-The server currently listens on port `3000`.
 
 ## Development Notes
 
