@@ -1,4 +1,5 @@
 const createurlservice=require("../services/shorturlhelper.service")
+const ApiError = require("../utils/ApiError");
 async function createShortUrl(req,res){
     const {originalUrl}=req.body;
     // const originalUrl=req.body; 
@@ -7,7 +8,11 @@ async function createShortUrl(req,res){
     // ! so i will destructure the object and get the originalUrl property from it
     //* originalurl will conatin{ "originalurl":"the url"} and when i try to insert it in if will have error because i have marked original uri as a string
     
-    const shortUrl=await createurlservice.CreateShortUrl(originalUrl);
+    if (!originalUrl) {
+        throw new ApiError(400, "originalUrl is required");
+    }
+
+    const shortUrl=await createurlservice.CreateShortUrlwithoutuser(originalUrl);
     
     res.status(201).json({shortUrl});
 }
@@ -17,7 +22,7 @@ async function redirectShortUrl(req,res){
     const url=await createurlservice.GetOriginalUrl(shortUrl);
 
     if(!url){
-        return res.status(404).send("NOT FOUND");
+        throw new ApiError(404, "Short URL not found");
     }
 
     res.redirect(url.originalUrl);
