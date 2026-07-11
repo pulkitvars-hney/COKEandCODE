@@ -1,0 +1,2 @@
+ get method ;= redirection
+ put method:- 
