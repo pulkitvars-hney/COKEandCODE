@@ -1,7 +1,24 @@
 import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import './App.css'
 
-const createShortCode = () => Math.random().toString(36).slice(2, 8)
+const createShortUrl = async (originalUrl) => {
+  const response = await fetch('/api/create/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ originalUrl }),
+  })
+  const data = await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to shorten this URL. Please try again.')
+  }
+  if (!data.shortUrl) {
+    throw new Error('The server did not return a shortened URL.')
+  }
+
+  return data.shortUrl
+}
 
 function LinkIcon() {
   return (
@@ -17,6 +34,17 @@ function App() {
   const [shortUrl, setShortUrl] = useState('')
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const shortenMutation = useMutation({
+    mutationFn: createShortUrl,
+    onSuccess: (createdShortUrl) => {
+      setShortUrl(createdShortUrl)
+      setCopied(false)
+    },
+    onError: (requestError) => {
+      setShortUrl('')
+      setError(requestError.message)
+    },
+  })
 
   const handleShorten = (event) => {
     event.preventDefault()
@@ -26,9 +54,7 @@ function App() {
       const normalizedUrl = /^https?:\/\//i.test(value) ? value : `https://${value}`
       new URL(normalizedUrl)
       setError('')
-      // will be Replacing this demo value with the response from your backend API.
-      setShortUrl(`shortly.io/${createShortCode()}`)
-      setCopied(false)
+      shortenMutation.mutate(normalizedUrl)
     } catch {
       setError('Please enter a valid URL, such as example.com')
       setShortUrl('')
@@ -36,9 +62,13 @@ function App() {
   }
 
   const copyLink = async () => {
-    await navigator.clipboard.writeText(`https://${shortUrl}`)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 1800)
+    try {
+      await navigator.clipboard.writeText(shortUrl)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      setError('Unable to copy the shortened URL. Please copy it manually.')
+    }
   }
 
   return (
@@ -67,7 +97,9 @@ function App() {
               placeholder="https://your-very-long-link.com/..."
               aria-describedby={error ? 'url-error' : undefined}
             />
-            <button type="submit">Shorten link <span>→</span></button>
+            <button type="submit" disabled={shortenMutation.isPending}>
+              {shortenMutation.isPending ? 'Shortening...' : <>Shorten link <span>→</span></>}
+            </button>
           </div>
           {error && <p className="error" id="url-error">{error}</p>}
 
@@ -75,7 +107,7 @@ function App() {
             <div className="result" aria-live="polite">
               <div>
                 <span className="result-label">YOUR SHORT LINK</span>
-                <a href={`https://${shortUrl}`} target="_blank" rel="noreferrer">{shortUrl}</a>
+                <a href={shortUrl} target="_blank" rel="noreferrer">{shortUrl}</a>
               </div>
               <button className="copy-button" type="button" onClick={copyLink}>{copied ? 'Copied!' : 'Copy link'}</button>
             </div>
