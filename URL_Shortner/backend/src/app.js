@@ -6,7 +6,7 @@ const app =express();
 app.use(express.json());
 
 app.use("/", router);
-
+app.use("/api/auht",router)
 // These must stay after the routes so normal requests get handled first.
 // Unknown routes go to notFoundHandler, and all errors finish in errorHandler.
 app.use(notFoundHandler);
