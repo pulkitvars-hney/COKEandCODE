@@ -9,7 +9,7 @@ const CreateShortUrlwithoutuser = async (url) => {
 }
 const CreateShortUrlwithuser = async (url,userid) => {
     const short_Url = nanoid.genratenanoid(7);
-    await saveurl.saveshortUrl(short_Url,url,userID)
+    await saveurl.saveshortUrl(short_Url,url,userid)
     return process.env.APP_KEY + short_Url;
 
 }
