@@ -3,6 +3,9 @@
 const mongoose=require("mongoose");
 const {Schema}=require("mongoose");
 const bcrypt=require("bcrypt");
+const jwt=require("jsonwebtoken");
+require('dotenv').config();
+
 const userSchema = new Schema({
     username: {
         type: String,
@@ -53,10 +56,31 @@ userSchema.methods.isPasswordCorrect= async function(password){
     //! if you use this in arrow function it will return the outer scope 
     //! but if you print the this of normal function you will get the whole user;
 return bcrypt.compare(password,this.password);
+//Since it's asynchronous, it returns a Promise that resolves to a boolean, which is why you use await.
 };
 
 //? GENRAL RULE  ALWAYS USE FUNCTION WHEN YOU WANT TO USE "this"
 //? Because Mongoose binds this to the current document. Arrow functions don't have their own this,
 //? so they can't access document properties like this.password or this.isModified().
 // export const User=mongoose.model("User",userSchema);
+
+// adding  token system;
+userSchema.methods.generateAccessToken=function () {
+   // jwt is synchronus function
+    return jwt.sign({
+        _id:this._id,
+        email:this.email,
+        username:this.username
+    },process.env.ACCESS_TOKEN_SECRET,{
+        expiresIn:process.env.ACCESS_TOKEN_EXPIRY
+    });
+}
+userSchema.methods.generateRefreshToken=async function () {
+    return jwt.sign({
+        _id:this._id,
+    },process.env.REFRESH_TOKEN_SECRET,{
+        expiresIn:process.env.REFRESH_TOKEN_EXPIRY
+    });
+}
+
 module.exports=mongoose.model("User",userSchema);
