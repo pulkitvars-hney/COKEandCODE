@@ -13,12 +13,14 @@ const login=async(userdata)=>{
     const user= identifier.includes("@")?await findUserByEmail(identifier):await findByUsername(identifier);
     // user is a Mongoose document, so it has schema methods
     if(!user){
-        throw new ApiError(404,"Invalid credentials");
+        // Use 401 for both cases so the response does not reveal whether an account exists.
+        throw new ApiError(401,"Invalid credentials");
 
     }
     const isvalid=await user.isPasswordCorrect(password);
     if(!isvalid){
-        throw new ApiError(404, "Invalid credentials");
+        // Use the same public error as a missing user for the same reason.
+        throw new ApiError(401, "Invalid credentials");
     }
 
     const {accessToken,refreshToken}=await generateAccessandRefreshToken(user._id);
@@ -40,8 +42,7 @@ const generateAccessandRefreshToken=async(userId)=>{
     const refreshToken=user.generateRefreshToken();
     user.refreshToken=refreshToken;
     await user.save({validateBeforeSave:false});
-//     Why validateBeforeSave: false?
-// Because you're only updating the refreshToken field.
+    // Only refreshToken changes here, so skip validation of unrelated required fields.
     return {accessToken,refreshToken};
 }
 

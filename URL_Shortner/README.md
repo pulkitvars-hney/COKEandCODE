@@ -2,7 +2,7 @@
 
 A simple backend API for creating short URLs and redirecting users back to the original links.
 
-This project is being built with Node.js, Express, MongoDB, and Mongoose. It is currently focused on the backend API layer, with URL creation, redirection, click tracking, and centralized error handling already started.
+This project is being built with Node.js, Express, MongoDB, and Mongoose. It currently provides URL creation, redirection, click tracking, centralized error handling, and user authentication endpoints.
 
 ## Project Status
 
@@ -19,14 +19,18 @@ Completed so far:
 - Click count increment on redirect
 - Centralized error handling middleware
 - 404 handling for unknown routes
+- User signup with password hashing using `bcrypt`
+- Login with access and refresh JWTs stored in HTTP-only cookies
+- JWT verification middleware for protected requests
+- Protected endpoint to retrieve the signed-in user's profile
 
 Still planned:
 
 - Stronger validation for invalid URLs
 - Duplicate URL handling
-- User authentication support
 - Environment-based server port
 - Tests for create and redirect behavior
+- Refresh-token rotation and logout
 - Frontend or API documentation page
 
 ## Tech Stack
@@ -38,6 +42,9 @@ Still planned:
 - dotenv
 - nanoid
 - nodemon
+- bcrypt
+- jsonwebtoken
+- cookie-parser
 
 ## Folder Structure
 
@@ -51,16 +58,23 @@ URL_Shortner/
       db/
         database.js
       routes/
+        auth.routes.js
         shortUrl.route.js
       controllers/
+        auth.controllers.js
         shorturl.controller.js
       services/
+        auth.services.js
+        login.service.js
         shorturlhelper.service.js
       DAo/
         saveurl.js
+        user.dao.js
       models/
         models.js
+        user.model.js
       middlewares/
+        auth.middleware.js
         errorHandler.js
       utils/
         ApiError.js
@@ -107,6 +121,51 @@ GET /api/abc1234
 
 If the short code exists, the server redirects to the original URL and increments the click count.
 
+### Sign Up
+
+```http
+POST /api/auth/signup
+```
+
+```json
+{
+  "username": "alex",
+  "email": "alex@example.com",
+  "password": "a-strong-password"
+}
+```
+
+### Log In
+
+```http
+POST /api/auth/login
+```
+
+Use either a username or email address as `identifier`.
+
+```json
+{
+  "identifier": "alex@example.com",
+  "password": "a-strong-password"
+}
+```
+
+On success, the server returns the user without sensitive fields and sets HTTP-only `accessToken` and `refreshToken` cookies.
+
+### Get Current User (Protected)
+
+```http
+GET /api/auth/me
+```
+
+Send the `accessToken` cookie created at login, or include the token as a bearer token:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+The JWT middleware verifies the token, confirms that the user still exists, and adds the sanitized user document to the request.
+
 ## Error Handling
 
 The project uses centralized error handling.
@@ -134,6 +193,11 @@ Create a `.env` file inside `backend/`.
 ```env
 mongodb_key=your_mongodb_connection_string
 APP_KEY=http://localhost:3000/api/
+ACCESS_TOKEN_SECRET=replace_with_a_long_random_secret
+ACCESS_TOKEN_EXPIRY=15m
+REFRESH_TOKEN_SECRET=replace_with_a_different_long_random_secret
+REFRESH_TOKEN_EXPIRY=7d
+NODE_ENV=development
 ```
 
 ## Run Locally
@@ -163,4 +227,5 @@ The server currently listens on port `3000`.
 - Add duplicate URL handling so the same long URL can reuse an existing short URL.
 - Move the hard-coded port into an environment variable.
 - Add tests for create and redirect behavior.
+- Add refresh-token rotation, logout, and authentication tests.
 - Add a `.gitignore` for `node_modules` and `.env` if one is not already present.
