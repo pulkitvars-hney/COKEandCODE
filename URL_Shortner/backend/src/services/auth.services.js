@@ -3,17 +3,9 @@ const ApiError = require("../utils/ApiError");
 // const { findByUsername } = require("../DAo/user.dao")
 
 const signup = async (userdata) => {
-    //userdata is an obj controller will be sending something like req.body
+    // `userdata` is the plain object received from req.body.
     const { username, email, password } = userdata;
-    // if(!username||!email||!password){
-    //     throw new ApiError(400,"All fields are required");
-    // }
-    // the above can is not able to catch this
-    //     {
-    //     "username": "   ",
-    //     "email": "   ",
-    //     "password": "   "
-    // }
+    // A simple truthy check accepts "   "; trim() rejects whitespace-only values too.
     if (
         !username?.trim() ||
         !email?.trim() ||
@@ -30,12 +22,8 @@ const signup = async (userdata) => {
         throw new ApiError(409, "username already exists");
     }
 
-    //sending an obj as if  i want to add things later i have to only chamge the obj not every function call and declaration
-
-    // const User = await createuser(username, email, password);
+    // Pass one object so future user fields can be added without changing every function signature.
     const createdUser = await createUser(userdata);
-    return createdUser;
-    // neccessary to return it as controller recieve undefined
-
+    return createdUser; // The controller needs the created document to build its response.
 }
 module.exports = { signup };

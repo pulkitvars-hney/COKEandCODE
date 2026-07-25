@@ -35,14 +35,10 @@ const userSchema = new Schema({
 },
 },{timestamps:true})
 
-// !this will help in saving the password with a hash not plain text and like hashing then saving the pasword can cause error
-// !this helps as you will not have to worry every time
-
 userSchema.pre("save", async function () {
-    //* pre is the middle ware thus next is used
-    // *save is  mongoose event middle ware name
-    //* If the password hasn't changed, don't hash it again.
-    if (!this.isModified("password")) { // is modified checks wether the pasword is modified or usually help in login
+    // `save` is a Mongoose middleware event. Run this hook before the user document is stored.
+    // Avoid hashing the already-hashed password when saving unrelated changes, such as refreshToken.
+    if (!this.isModified("password")) {
         return ;
     }
 
@@ -52,21 +48,13 @@ userSchema.pre("save", async function () {
     // next();
 });
 userSchema.methods.isPasswordCorrect= async function(password){
-    //! here arrow function can not be  used as arrow function does not have this of their own thus you have to use normal function
-    //! if you use this in arrow function it will return the outer scope 
-    //! but if you print the this of normal function you will get the whole user;
-return bcrypt.compare(password,this.password);
-//Since it's asynchronous, it returns a Promise that resolves to a boolean, which is why you use await.
+    // Use a regular function: Mongoose binds `this` to the current user document.
+    // Arrow functions use the surrounding `this`, so `this.password` would not refer to this user.
+    return bcrypt.compare(password,this.password);
 };
 
-//? GENRAL RULE  ALWAYS USE FUNCTION WHEN YOU WANT TO USE "this"
-//? Because Mongoose binds this to the current document. Arrow functions don't have their own this,
-//? so they can't access document properties like this.password or this.isModified().
-// export const User=mongoose.model("User",userSchema);
-
-// adding  token system;
 userSchema.methods.generateAccessToken=function () {
-   // jwt is synchronus function
+   // jwt.sign is synchronous. Keep only identity claims needed by protected routes in the access token.
     return jwt.sign({
         _id:this._id,
         email:this.email,
@@ -75,7 +63,7 @@ userSchema.methods.generateAccessToken=function () {
         expiresIn:process.env.ACCESS_TOKEN_EXPIRY
     });
 }
-userSchema.methods.generateRefreshToken=async function () {
+userSchema.methods.generateRefreshToken=function () {
     return jwt.sign({
         _id:this._id,
     },process.env.REFRESH_TOKEN_SECRET,{

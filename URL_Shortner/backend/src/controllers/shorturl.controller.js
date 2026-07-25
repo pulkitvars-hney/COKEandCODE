@@ -2,12 +2,9 @@ const createurlservice=require("../services/shorturlhelper.service")
 const ApiError = require("../utils/ApiError");
 async function createShortUrl(req,res){
     const {originalUrl}=req.body;
-    // const originalUrl=req.body; 
-    //! doing this i will store the whole object in the database and i will not be able to access the originalUrl property of the object 
-    // !because it will be stored as an object in the database and i will have to access it as originalUrl.originalUrl which is not what i want
-    // ! so i will destructure the object and get the originalUrl property from it
-    //* originalurl will conatin{ "originalurl":"the url"} and when i try to insert it in if will have error because i have marked original uri as a string
-    
+    // `req.body` is an object such as { originalUrl: "https://example.com" }.
+    // Destructuring extracts the string that the URL schema expects to store.
+    // Passing `req.body` directly would store an object and require `originalUrl.originalUrl` later.
     if (!originalUrl) {
         throw new ApiError(400, "originalUrl is required");
     }
