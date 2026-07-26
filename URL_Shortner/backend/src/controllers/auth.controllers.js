@@ -1,37 +1,42 @@
 const { signup } = require("../services/auth.services");
-const asyncHandler = require("../utils/asyncHandler");
 const { login } = require("../services/login.service");
+
+const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/user.model");
+const jwt=require("jsonwebtoken");
+
+const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
-const CreateUser=asyncHandler(async (req,res)=> {
-    const createdUser=await signup(req.body);
+
+const CreateUser = asyncHandler(async (req, res) => {
+    const createdUser = await signup(req.body);
     // Query the document again so password and refresh tokens never leave the API.
     const user = await User.findById(createdUser._id).select("-password -refreshToken");
     res.status(201).json(new ApiResponse(201, { user }, "User created successfully"));
 })
-const LoggedinUser= asyncHandler(async(req,res)=>{
+const LoggedinUser = asyncHandler(async (req, res) => {
     const { user, refreshToken, accessToken } = await login(req.body);
 
     // Send a sanitized user object rather than exposing credential fields.
     const loggedInUser = await User.findById(user._id)
         .select("-password -refreshToken");
-    const options={
-    httpOnly:true,
-    // Secure cookies require HTTPS, so enable them in production but allow local HTTP development.
-    secure: process.env.NODE_ENV === "production",
-};
-return res
-    .status(200)
-    .cookie("accessToken",accessToken,options)
-    .cookie("refreshToken",refreshToken,options)
-    .json(
-        new ApiResponse(
-            200,{
-                user:loggedInUser,
+    const options = {
+        httpOnly: true,
+        // Secure cookies require HTTPS, so enable them in production but allow local HTTP development.
+        secure: process.env.NODE_ENV === "production",
+    };
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(
+                200, {
+                user: loggedInUser,
             },
-            "login Successful"
+                "login Successful"
+            )
         )
-    )
 })
 
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -39,8 +44,48 @@ const getCurrentUser = asyncHandler(async (req, res) => {
     res.status(200).json(new ApiResponse(200, { user: req.user }, "User retrieved successfully"));
 });
 
-module.exports={
+const refeshAccessToken = asyncHandler(async (req, res, next) => {
+    const incomingrefreshToken = req.cookies?.refreshToken;
+    if (!incomingrefreshToken) {
+        throw new ApiError(401, "Refresh Token is missing");
+    }
+    try {
+        const decode = Jwt.verify(incomingrefreshToken, process.env.REFRESH_TOKEN_SECRET);
+
+        const user = await User.findById(decode._id);
+
+        if (!user||user.refreshToken !== incomingRefreshToken) {
+            throw new ApiError(401, "invalid refresh token");
+        }
+
+        const newRefreshToken = user.generateRefreshToken();
+        const newAccessToken = user.generateAccessToken();
+
+        user.refreshToken = newRefreshToken;
+        await user.save({ validateBeforeSave: false });
+
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+        };
+
+        return res
+            .status(200)
+            .cookie("accessToken", newAccessToken, cookieOptions)
+            .cookie("refreshToken", newRefreshToken, cookieOptions)
+            .json({
+                success: true,
+                message: "Tokens refreshed successfully",
+            });
+    } catch (error) {
+        throw new ApiError(401, "Refresh token is invalid or expired");
+    }
+})
+
+module.exports = {
     CreateUser,
     LoggedinUser,
-    getCurrentUser
+    getCurrentUser,
+    refeshAccessToken
 }
