@@ -7,5 +7,5 @@ const router=express.Router();
 router.post("/api/url/create",verifyjwt, asyncHandler(shortUrlController.createShortUrl));
 router.get("/api/:shortUrl", asyncHandler(shortUrlController.redirectShortUrl));
 router.get("/api/url/myurls",verifyjwt,asyncHandler(shortUrlController.fetchingmyurls))
-
+router.delete("/api/url/:id",verifyjwt,asyncHandler(shortUrlController.deletingmyurl))
 module.exports=router;

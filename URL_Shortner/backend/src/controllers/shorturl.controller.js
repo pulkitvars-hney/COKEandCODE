@@ -1,7 +1,7 @@
 const {CreateShortUrlwithuser,GetOriginalUrl}=require("../services/shorturlhelper.service")
 const ApiError = require("../utils/ApiError");
 const ApiResponse=require("../utils/ApiResponse")
-const {getMyUrls}=require("../services/shorturlhelper.service")
+const {getMyUrls,deleteUrlService}=require("../services/shorturlhelper.service")
 async function createShortUrl(req,res){
     const {originalUrl}=req.body;
     // `req.body` is an object such as { originalUrl: "https://example.com" }.
@@ -32,4 +32,9 @@ async function fetchingmyurls(req,res){
     return res.status(200).json( new ApiResponse(200,urls,"Urls Fetched succesfully"));
 }
 
-module.exports={createShortUrl, redirectShortUrl,fetchingmyurls};
+async function deletingmyurl(req,res){
+        const response=await deleteUrlService(req.params.id,req.user._id);
+        return res.status(200).json(new ApiResponse(200,response,"Deltion successful"))
+    }
+
+module.exports={createShortUrl, redirectShortUrl,fetchingmyurls,deletingmyurl};
