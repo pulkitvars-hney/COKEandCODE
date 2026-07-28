@@ -13,4 +13,7 @@ const saveshortUrl=async (shorturl,longurl,userid)=>{
     await newurl.save();
     
 }
-module.exports={saveshortUrl};
+const getUrlsByUserId=async(userId)=>{
+    return await urlschema.find({userId});
+}
+module.exports={saveshortUrl,getUrlsByUserId};

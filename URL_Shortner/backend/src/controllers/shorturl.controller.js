@@ -29,4 +29,5 @@ async function fetchingmyurls(req,res){
     const url=await getMyUrls(req.user._id);
     return res.status(200).json( new ApiResponse(200,urls,"Urls Fetched succesfully"));
 }
+
 module.exports={createShortUrl, redirectShortUrl,fetchingmyurls};
