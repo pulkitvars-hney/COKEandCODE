@@ -14,6 +14,7 @@ const CreateUser = asyncHandler(async (req, res) => {
     const user = await User.findById(createdUser._id).select("-password -refreshToken");
     res.status(201).json(new ApiResponse(201, { user }, "User created successfully"));
 })
+
 const LoggedinUser = asyncHandler(async (req, res) => {
     const { user, refreshToken, accessToken } = await login(req.body);
 
@@ -64,7 +65,7 @@ const refeshAccessToken = asyncHandler(async (req, res, next) => {
         // user.refreshToken = newRefreshToken;
         // await user.save({ validateBeforeSave: false });
         // instead of manually doing this i have a user method
-        const {newAccessToken,newRefreshToken}=await generateAccessandRefreshToken(user._id);
+        const {accessToken,refreshToken}=await generateAccessandRefreshToken(user._id);
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
@@ -73,8 +74,8 @@ const refeshAccessToken = asyncHandler(async (req, res, next) => {
 
         return res
             .status(200)
-            .cookie("accessToken", newAccessToken, cookieOptions)
-            .cookie("refreshToken", newRefreshToken, cookieOptions)
+            .cookie("accessToken", accessToken, cookieOptions)
+            .cookie("refreshToken", refreshToken, cookieOptions)
             .json({
                 success: true,
                 message: "Tokens refreshed successfully",

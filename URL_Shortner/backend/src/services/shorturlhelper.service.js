@@ -1,5 +1,5 @@
 const nanoid = require("../utils/nanoid.js");
-const urlSchema = require("../models/models.js");
+const urlSchema = require("../models/url.models.js");
 const saveurl=require("../DAo/saveurl.js")
 const CreateShortUrlwithoutuser = async (url) => {
     const short_Url = nanoid.genratenanoid(7);

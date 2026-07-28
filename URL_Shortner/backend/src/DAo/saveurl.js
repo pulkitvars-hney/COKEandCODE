@@ -1,5 +1,5 @@
 const mongose =require("mongoose");
-const urlschema=require("../models/models.js");
+const urlschema=require("../models/url.models.js");
 
 
 const saveshortUrl=async (shorturl,longurl,userid)=>{
