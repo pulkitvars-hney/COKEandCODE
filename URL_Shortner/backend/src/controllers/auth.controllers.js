@@ -25,6 +25,7 @@ const LoggedinUser = asyncHandler(async (req, res) => {
         httpOnly: true,
         // Secure cookies require HTTPS, so enable them in production but allow local HTTP development.
         secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
     };
     return res
         .status(200)

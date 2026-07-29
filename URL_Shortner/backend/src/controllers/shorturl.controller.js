@@ -7,10 +7,6 @@ async function createShortUrl(req,res){
     // `req.body` is an object such as { originalUrl: "https://example.com" }.
     // Destructuring extracts the string that the URL schema expects to store.
     // Passing `req.body` directly would store an object and require `originalUrl.originalUrl` later.
-    if (!originalUrl) {
-        throw new ApiError(400, "originalUrl is required");
-    }
-
     const shortUrl=await CreateShortUrlwithuser(originalUrl,req.user._id);
     
     res.status(201).json({shortUrl});

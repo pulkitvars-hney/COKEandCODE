@@ -1,208 +1,52 @@
-# URL Shortener
+# Shortly — URL Shortener
 
-A simple backend API for creating short URLs and redirecting users back to the original links.
+Shortly is a full-stack URL shortener. Registered users can create, copy, view, and delete their own short links. Anyone with a short link can open it and be redirected to the original destination.
 
-This project is being built with Node.js, Express, MongoDB, and Mongoose. It currently provides URL creation, redirection, click tracking, centralized error handling, and user authentication endpoints.
-
-## Project Status
-
-This project is currently in development.
-
-Completed so far:
-
-- Basic Express server setup
-- MongoDB connection with Mongoose
-- URL model for storing original URLs and short codes
-- Short URL generation using `nanoid`
-- API endpoint to create a short URL
-- API endpoint to redirect a short URL
-- Click count increment on redirect
-- Centralized error handling middleware
-- 404 handling for unknown routes
-- User signup with password hashing using `bcrypt`
-- Login with access and refresh JWTs stored in HTTP-only cookies
-- JWT verification middleware for protected requests
-- Protected endpoint to retrieve the signed-in user's profile
-
-Still planned:
-
-- Stronger validation for invalid URLs
-- Duplicate URL handling
-- Environment-based server port
-- Tests for create and redirect behavior
-- Refresh-token rotation and logout
-- Frontend or API documentation page
-
-## Tech Stack
-
-- Node.js
-- Express
-- MongoDB
-- Mongoose
-- dotenv
-- nanoid
-- nodemon
-- bcrypt
-- jsonwebtoken
-- cookie-parser
-
-## Folder Structure
+## Architecture
 
 ```text
-URL_Shortner/
-  backend/
-    server.js
-    package.json
-    src/
-      app.js
-      db/
-        database.js
-      routes/
-        auth.routes.js
-        shortUrl.route.js
-      controllers/
-        auth.controllers.js
-        shorturl.controller.js
-      services/
-        auth.services.js
-        login.service.js
-        shorturlhelper.service.js
-      DAo/
-        saveurl.js
-        user.dao.js
-      models/
-        models.js
-        user.model.js
-      middlewares/
-        auth.middleware.js
-        errorHandler.js
-      utils/
-        ApiError.js
-        asyncHandler.js
-      utiles/
-        nanoid.js
+React + Vite client (port 5173)
+  └─ development proxy: /api → Express API (port 3000)
+       ├─ routes → controllers → services → DAOs
+       ├─ JWT authentication in HTTP-only cookies
+       └─ Mongoose → MongoDB (User and Url collections)
 ```
 
-## API Endpoints
+The React client uses React Query for session state, mutations, and the user's saved links. Express keeps HTTP handling in controllers, URL/auth business rules in services, and MongoDB access in DAOs.
 
-### Create Short URL
+## Features
 
-```http
-POST /api/create/check
-```
+- Signup and login using username/email and password
+- HTTP-only access and refresh-token cookies
+- Protected link creation, link listing, and link deletion
+- Public redirects with click-count tracking
+- Validates HTTP/HTTPS URLs and reuses an existing matching URL for the same user
+- Centralized JSON error handling
 
-Request body:
+## API
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/auth/signup` | Create an account |
+| POST | `/api/auth/login` | Log in and receive cookies |
+| GET | `/api/auth/me` | Read the active session |
+| POST | `/api/auth/logout` | End the active session |
+| POST | `/api/auth/refresh-token` | Refresh access and refresh cookies |
+| POST | `/api/url/create` | Create a short URL (authenticated) |
+| GET | `/api/url/myurls` | List the current user's URLs (authenticated) |
+| DELETE | `/api/url/:id` | Delete one of the current user's URLs (authenticated) |
+| GET | `/api/:shortUrl` | Redirect a public short URL |
+
+Example authenticated creation request:
 
 ```json
-{
-  "originalUrl": "https://example.com"
-}
+{ "originalUrl": "https://example.com/article" }
 ```
 
-Example response:
+## Setup
 
-```json
-{
-  "shortUrl": "http://localhost:3000/api/abc1234"
-}
-```
-
-### Redirect Short URL
-
-```http
-GET /api/:shortUrl
-```
-
-Example:
-
-```http
-GET /api/abc1234
-```
-
-If the short code exists, the server redirects to the original URL and increments the click count.
-
-### Sign Up
-
-```http
-POST /api/auth/signup
-```
-
-```json
-{
-  "username": "alex",
-  "email": "alex@example.com",
-  "password": "a-strong-password"
-}
-```
-
-### Log In
-
-```http
-POST /api/auth/login
-```
-
-Use either a username or email address as `identifier`.
-
-```json
-{
-  "identifier": "alex@example.com",
-  "password": "a-strong-password"
-}
-```
-
-On success, the server returns the user without sensitive fields and sets HTTP-only `accessToken` and `refreshToken` cookies.
-
-### Get Current User (Protected)
-
-```http
-GET /api/auth/me
-```
-
-Send the `accessToken` cookie created at login, or include the token as a bearer token:
-
-```http
-Authorization: Bearer <access-token>
-```
-
-The JWT middleware verifies the token, confirms that the user still exists, and adds the sanitized user document to the request.
-
-## Error Handling
-
-The project uses centralized error handling.
-
-- `ApiError` is used for known application errors like bad requests or missing URLs.
-- `asyncHandler` forwards async controller errors to Express automatically.
-- `notFoundHandler` handles unknown routes.
-- `errorHandler` sends a consistent JSON error response.
-
-Example error response:
-
-```json
-{
-  "success": false,
-  "message": "Short URL not found"
-}
-```
-
-When `NODE_ENV=development`, the response can also include a stack trace for debugging.
-
-## Environment Variables
-
-Create a `.env` file inside `backend/`.
-
-```env
-mongodb_key=your_mongodb_connection_string
-APP_KEY=http://localhost:3000/api/
-ACCESS_TOKEN_SECRET=replace_with_a_long_random_secret
-ACCESS_TOKEN_EXPIRY=15m
-REFRESH_TOKEN_SECRET=replace_with_a_different_long_random_secret
-REFRESH_TOKEN_EXPIRY=7d
-NODE_ENV=development
-```
-
-## Run Locally
-
-From the backend folder:
+1. Copy [`backend/.env.example`](backend/.env.example) to `backend/.env` and add a MongoDB connection string and JWT secrets.
+2. Start the backend:
 
 ```bash
 cd backend
@@ -210,22 +54,18 @@ npm install
 npm run dev
 ```
 
-The server currently listens on port `3000`.
+3. In another terminal, start the frontend:
 
-## Development Notes
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- Prefer existing project dependencies and built-in Node.js/Express/Mongoose features before adding custom logic.
-- Before installing a new package, check whether the project already has a dependency that solves the problem.
-- Keep route handling in controllers and business/database logic in services.
-- Keep database schema changes inside `src/models/`.
-- Keep environment-specific values in `.env`, not directly in source files.
-- Do not edit files inside `node_modules/`.
+Open the Vite address displayed in the terminal (normally `http://localhost:5173`). The frontend forwards `/api` requests to the backend during development.
 
-## Things To Discuss Next
+`PORT` defaults to `3000`; set it in `.env` when needed. Keep `APP_KEY` aligned with that public backend address, for example `http://localhost:3000/api/`.
 
-- Add stricter validation for invalid `originalUrl` values.
-- Add duplicate URL handling so the same long URL can reuse an existing short URL.
-- Move the hard-coded port into an environment variable.
-- Add tests for create and redirect behavior.
-- Add refresh-token rotation, logout, and authentication tests.
-- Add a `.gitignore` for `node_modules` and `.env` if one is not already present.
+## Current status
+
+The app has a functional authenticated UI and integrated backend. Automated tests have intentionally not been added yet.
