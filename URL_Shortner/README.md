@@ -42,6 +42,10 @@ The React client uses React Query for session state, mutations, and the user's s
 | GET | `/api/analytics/:urlId/overview?interval=day` | View analytics for an owned URL (authenticated) |
 | GET | `/api/analytics/:urlId/recent?limit=20` | View recent clicks for an owned URL (authenticated) |
 
+## API documentation
+
+Start the backend and open `http://localhost:3000/api-docs` to view and try the Swagger UI documentation. Protected routes support JWT Bearer authentication through Swagger's **Authorize** button. Browser clients can continue using the existing HTTP-only authentication cookies.
+
 Example authenticated creation request:
 
 ```json
