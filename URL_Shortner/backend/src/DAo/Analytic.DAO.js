@@ -1,5 +1,4 @@
 const Analytics = require("../models/analytic.model");
-const { getAnalyticsStats } = require("../utils/analytics.helper")
 const createAnalytic = async (data) => {
     return await Analytics.create(data);
 };
@@ -10,23 +9,43 @@ const getRecentClicks = async (urlId, limit = 20) => {
     // -1 will help us to get data newest to oldest
 }
 
-const getCountryStats = async (urlId) => {
-    return await getAnalyticsStats(urlId, "country");
+// const getCountryStats = async (urlId) => {
+//     return await getAnalyticsStats(urlId, "country");
+// }
+
+// const getBrowserStats = async (urlId) => {
+//     return await getAnalyticsStats(urlId, "browser");
+// }
+
+// const getDeviceStats = async (urlId) => {
+//     return await getAnalyticsStats(urlId, "deviceType");
+// }
+
+// const getOsStats = async (urlId) => {
+//     return await getAnalyticsStats(urlId, "os");
+
+// }
+const getAnalyticsStats = async (urlId, field) => {
+    return await Analytics.aggregate([
+        {
+            $match: { urlId }
+        },
+        
+        {
+            $group:{
+                _id:`$${field}`,
+                count:{
+                    $sum:1,
+                }
+            }
+        },
+        {
+            $sort:{
+                count:-1,
+            }
+        }
+    ])
 }
-
-const getBrowserStats = async (urlId) => {
-    return await getAnalyticsStats(urlId, "browser");
-}
-
-const getDeviceStats = async (urlId) => {
-    return await getAnalyticsStats(urlId, "deviceType");
-}
-
-const getOsStats = async (urlId) => {
-    return await getAnalyticsStats(urlId, "os");
-
-}
-
 const getUniqueVisitors = async (urlId) => {
     return await Analytics.distinct("visitorId", { urlId });
 };
@@ -82,10 +101,8 @@ const getRepeatVisitors = async (urlId) => {
 module.exports = {
     createAnalytic,
     getRecentClicks,
-    getCountryStats,
-    getDeviceStats,
-    getBrowserStats,
-    getOsStats,
+    getAnalyticsStats,
     getUniqueVisitors,
     getTimeline,
+    getRepeatVisitors,
 };
