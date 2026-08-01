@@ -4,10 +4,14 @@ const createAnalytic = async (data) => {
 };
 
 const getRecentClicks = async (urlId, limit = 20) => {
-    // Return only the most recent 'limit' analytics documents.
-    return await Analytics.find({ urlId }).sort({ clickedAt: -1, }).limit(limit)
-    // -1 will help us to get data newest to oldest
-}
+    // Project only fields that are safe and useful for the recent-clicks API.
+    // IP addresses, user agents, and visitor IDs stay internal analytics data.
+    return Analytics.find({ urlId })
+        .select("clickedAt browser os deviceType country city referrer")
+        .sort({ clickedAt: -1 })
+        .limit(limit)
+        .lean();
+};
 
 // const getCountryStats = async (urlId) => {
 //     return await getAnalyticsStats(urlId, "country");

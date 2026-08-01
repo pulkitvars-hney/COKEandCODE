@@ -10,7 +10,7 @@ const saveshortUrl=async (shorturl,longurl,userid)=>{
     if(userid){
         newurl.userId=userid;
     }
-    await newurl.save();
+   return await newurl.save();
     
 }
 

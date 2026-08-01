@@ -1,6 +1,6 @@
 # Shortly — URL Shortener
 
-Shortly is a full-stack URL shortener. Registered users can create, copy, view, and delete their own short links. Anyone with a short link can open it and be redirected to the original destination.
+Shortly is a full-stack URL shortener. Registered users can create, copy, view, and delete their own short links. Anyone with a short link can open it and be redirected to the original destination. Each successful redirect records a click event for analytics.
 
 ## Architecture
 
@@ -9,7 +9,7 @@ React + Vite client (port 5173)
   └─ development proxy: /api → Express API (port 3000)
        ├─ routes → controllers → services → DAOs
        ├─ JWT authentication in HTTP-only cookies
-       └─ Mongoose → MongoDB (User and Url collections)
+       └─ Mongoose → MongoDB (User, Url, and analytics collections)
 ```
 
 The React client uses React Query for session state, mutations, and the user's saved links. Express keeps HTTP handling in controllers, URL/auth business rules in services, and MongoDB access in DAOs.
@@ -19,7 +19,10 @@ The React client uses React Query for session state, mutations, and the user's s
 - Signup and login using username/email and password
 - HTTP-only access and refresh-token cookies
 - Protected link creation, link listing, and link deletion
-- Public redirects with click-count tracking
+- Public redirects with atomic total-click tracking
+- Per-click analytics: browser, operating system, device type, referrer, timestamp, and a hashed visitor identifier
+- Optional country and city lookup through the `ipwho.is` GeoIP API; a GeoIP outage never prevents a redirect
+- Authenticated analytics overview for each owned URL
 - Validates HTTP/HTTPS URLs and reuses an existing matching URL for the same user
 - Centralized JSON error handling
 
@@ -36,6 +39,8 @@ The React client uses React Query for session state, mutations, and the user's s
 | GET | `/api/url/myurls` | List the current user's URLs (authenticated) |
 | DELETE | `/api/url/:id` | Delete one of the current user's URLs (authenticated) |
 | GET | `/api/:shortUrl` | Redirect a public short URL |
+| GET | `/api/analytics/:urlId/overview?interval=day` | View analytics for an owned URL (authenticated) |
+| GET | `/api/analytics/:urlId/recent?limit=20` | View recent clicks for an owned URL (authenticated) |
 
 Example authenticated creation request:
 
@@ -43,9 +48,23 @@ Example authenticated creation request:
 { "originalUrl": "https://example.com/article" }
 ```
 
+The analytics overview accepts `day`, `week`, `month`, or `year` as its optional `interval`. It returns total clicks, unique and repeat visitor counts, a click timeline, and country/browser/device/OS breakdowns.
+
+## Redirect and analytics flow
+
+```text
+GET /api/:shortUrl
+  → find URL and atomically increment `clicks`
+  → collect request and GeoIP metadata
+  → create an analytics event
+  → redirect to the original URL
+```
+
+Country and city will be empty during localhost testing because loopback IP addresses (`127.0.0.1` / `::1`) do not have a geographic location. Test with public traffic after deployment.
+
 ## Setup
 
-1. Copy [`backend/.env.example`](backend/.env.example) to `backend/.env` and add a MongoDB connection string and JWT secrets.
+1. Create `backend/.env` with a MongoDB connection string and JWT secrets.
 2. Start the backend:
 
 ```bash
@@ -68,4 +87,15 @@ Open the Vite address displayed in the terminal (normally `http://localhost:5173
 
 ## Current status
 
-The app has a functional authenticated UI and integrated backend. Automated tests have intentionally not been added yet.
+Completed:
+
+- Authentication, URL CRUD, ownership checks, and public redirects
+- Total click tracking and detailed analytics event logging
+- Analytics overview API
+
+Remaining:
+
+- Frontend analytics dashboard
+- Automated backend tests
+- Deployment configuration and production validation
+- Redis caching (optional enhancement)
