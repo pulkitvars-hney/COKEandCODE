@@ -1,14 +1,15 @@
 const mongoose = require("mongoose");
 
 const analyticSchema = new mongoose.Schema({
-    urlid: {
+    urlId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Url",
         required: true,
         index: true,
     },
-    userid: {
-        type:String,
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
         index: true,
     },
     ipAddress: {
@@ -32,12 +33,11 @@ const analyticSchema = new mongoose.Schema({
     city: {
         type: String,
     },
-    refers: {
+    referrer: {
         type: String,
     },
     visitorId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: User,
+        type: String,
         index: true,
 
     },
