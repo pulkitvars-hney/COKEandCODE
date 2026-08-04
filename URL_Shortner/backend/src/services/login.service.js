@@ -3,14 +3,15 @@ const ApiError=require("../utils/ApiError");
 const User=require("../models/user.model");
 const login=async(userdata)=>{
     // userdata is a plain JavaScript object received from req.body
-    const {identifier,password}=userdata;
+    // Login validation normalizes the submitted email before it reaches this service.
+    const {email,password}=userdata;
      if (
-        !identifier?.trim() ||
+        !email?.trim() ||
         !password?.trim()
     ) {
         throw new ApiError(400, "All fields are required");
     }
-    const user= identifier.includes("@")?await findUserByEmail(identifier):await findByUsername(identifier);
+    const user = await findUserByEmail(email);
     // user is a Mongoose document, so it has schema methods
     if(!user){
         // Use 401 for both cases so the response does not reveal whether an account exists.
