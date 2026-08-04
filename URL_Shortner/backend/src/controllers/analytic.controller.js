@@ -4,7 +4,7 @@ const ApiResponse=require('../utils/ApiResponse');
 const getOverview=asyncHandler(async(req,res)=>{
     const {urlId}=req.params;
     const userId=req.user._id;
-    const { interval = "day" } = req.query;
+    const { interval } = req.validatedQuery;
     const overview=await analyticsService.getOverview(urlId,userId,interval);
 
     return res.status(200).json(
@@ -14,7 +14,7 @@ const getOverview=asyncHandler(async(req,res)=>{
 
 const getRecentClicks = asyncHandler(async (req, res) => {
     const { urlId } = req.params;
-    const { limit = 20 } = req.query;
+    const { limit } = req.validatedQuery;
 
     // The service validates URL ownership and validates/caps the requested limit.
     const recentClicks = await analyticsService.getRecentClicks(urlId, req.user._id, limit);
