@@ -14,6 +14,9 @@ function errorHandler(error, req, res, next) {
         success: false,
         message: statusCode === 500 ? "Internal server error" : error.message,
     };
+    if (error.details) {
+    response.details = error.details;
+}
 
     // Stack traces are useful locally, but should not be exposed in production.
     if (process.env.NODE_ENV === "development") {
