@@ -2,6 +2,7 @@ const nanoid = require("../utils/nanoid.js");
 const urlSchema = require("../models/url.models.js");
 const saveurl=require("../DAo/url.dao.js");
 const ApiError = require("../utils/ApiError.js");
+const { RESERVED_ALIASES } = require("../constant/reservedAliases");
 
 const validateUrl = (value) => {
     if (typeof value !== "string" || !value.trim()) {
@@ -46,8 +47,32 @@ const CreateShortUrlwithoutuser = async (url) => {
 
 }
 
-const CreateShortUrlwithuser = async (url,userid) => {
+const CreateShortUrlwithuser = async (url,userid,alias) => {
     const normalizedUrl = validateUrl(url);
+    const normalizedAlias = alias?.trim().toLowerCase();
+
+    if (normalizedAlias) {
+        if (RESERVED_ALIASES.has(normalizedAlias)) {
+            throw new ApiError(400, "This alias is reserved");
+        }
+
+        const existingAlias = await saveurl.findByShortUrl(normalizedAlias);
+        if (existingAlias) {
+            throw new ApiError(409, "This alias is already in use");
+        }
+
+        try {
+            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid);
+        } catch (error) {
+            // Protect against two requests claiming the same alias concurrently.
+            if (error?.code === 11000) {
+                throw new ApiError(409, "This alias is already in use");
+            }
+            throw error;
+        }
+        return buildShortUrl(normalizedAlias);
+    }
+
     const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid });
     if (existingUrl) return buildShortUrl(existingUrl.shortUrl);
 

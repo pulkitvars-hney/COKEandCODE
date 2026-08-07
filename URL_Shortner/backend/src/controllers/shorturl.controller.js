@@ -7,11 +7,11 @@ const UAParser = require("ua-parser-js");
 const crypto = require("crypto");
 const { getLocationFromIp } = require("../utils/geoip.helper");
 async function createShortUrl(req, res) {
-    const { originalUrl } = req.body;
+    const { originalUrl, alias } = req.body;
     // `req.body` is an object such as { originalUrl: "https://example.com" }.
     // Destructuring extracts the string that the URL schema expects to store.
     // Passing `req.body` directly would store an object and require `originalUrl.originalUrl` later.
-    const shortUrl = await CreateShortUrlwithuser(originalUrl, req.user._id);
+    const shortUrl = await CreateShortUrlwithuser(originalUrl, req.user._id, alias);
 
     res.status(201).json({
         shortUrl

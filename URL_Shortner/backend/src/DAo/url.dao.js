@@ -22,8 +22,12 @@ const getUrlById=async(Id)=>{
     return await urlschema.findById(Id);
 }
 
+const findByShortUrl = async (shortUrl) => {
+    return await urlschema.findOne({ shortUrl });
+}
+
 const deletUrl=async(Id)=>{
     return await urlschema.findByIdAndDelete(Id);
 }
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,deletUrl};
+module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl};
