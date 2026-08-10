@@ -23,7 +23,7 @@ const userschema=require("../models/user.model")
  };
  // update refresh token
  const updateRefreshToken= async(id,refreshToken)=>{
-    return await userschema.findByIdAndUpdate(id,{refreshToken},{new:true});
+    return await userschema.findByIdAndUpdate(id,{refreshToken},{returnDocument:"after"});
  };
 
 

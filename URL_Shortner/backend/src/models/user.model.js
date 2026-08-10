@@ -29,6 +29,10 @@ const userSchema = new Schema({
         type:String,
         default:"",
     },
+    refreshTokenJti: {
+        type: String,
+        default: "",
+    },
     avatar: {
     type: String,
     default: "",
@@ -63,9 +67,10 @@ userSchema.methods.generateAccessToken=function () {
         expiresIn:process.env.ACCESS_TOKEN_EXPIRY
     });
 } 
-userSchema.methods.generateRefreshToken=function () {
+userSchema.methods.generateRefreshToken=function (jti) {
     return jwt.sign({
         _id:this._id,
+        jti,
     },process.env.REFRESH_TOKEN_SECRET,{
         expiresIn:process.env.REFRESH_TOKEN_EXPIRY
     });

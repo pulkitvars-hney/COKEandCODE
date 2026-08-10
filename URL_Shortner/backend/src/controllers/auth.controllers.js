@@ -1,5 +1,5 @@
 const { signup } = require("../services/auth.services");
-const { login, generateAccessandRefreshToken } = require("../services/login.service");
+const { login, generateAccessandRefreshToken, rotateAccessandRefreshToken } = require("../services/login.service");
 const {removeRefreshToken}=require("../DAo/removerefreshToken");
 const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/user.model");
@@ -53,19 +53,10 @@ const refeshAccessToken = asyncHandler(async (req, res, next) => {
         } catch (error) {
             throw new ApiError(401, "Refresh token is invalid or expired");
         }
-        const user = await User.findById(decoded._id);
-
-        if (!user||user.refreshToken !== incomingRefreshToken) {
-            throw new ApiError(401, "invalid refresh token");
+        if (!decoded.jti) {
+            throw new ApiError(401, "Refresh token is invalid or expired");
         }
-
-        // const newRefreshToken = user.generateRefreshToken();
-        // const newAccessToken = user.generateAccessToken();
-
-        // user.refreshToken = newRefreshToken;
-        // await user.save({ validateBeforeSave: false });
-        // instead of manually doing this i have a user method
-        const {accessToken,refreshToken}=await generateAccessandRefreshToken(user._id);
+        const {accessToken,refreshToken}=await rotateAccessandRefreshToken(decoded._id, decoded.jti);
 
         return res
             .status(200)
