@@ -16,15 +16,17 @@ The React client uses React Query for session state, mutations, and the user's s
 
 ## Features
 
-- Signup and login using username/email and password
-- HTTP-only access and refresh-token cookies
+- Signup with username, email, and password; login with email and password
+- HTTP-only access and refresh-token cookies with unique-JTI rotation
 - Protected link creation, link listing, and link deletion
 - Public redirects with atomic total-click tracking
+- Generated NanoID short codes or optional custom aliases
+- Alias validation, reserved-name protection, and duplicate-alias detection
 - Per-click analytics: browser, operating system, device type, referrer, timestamp, and a hashed visitor identifier
 - Optional country and city lookup through the `ipwho.is` GeoIP API; a GeoIP outage never prevents a redirect
 - Authenticated analytics overview for each owned URL
-- Validates HTTP/HTTPS URLs and reuses an existing matching URL for the same user
-- Centralized JSON error handling
+- Validates HTTP/HTTPS URLs, route IDs, analytics intervals, and result limits
+- Centralized JSON error handling with ownership checks
 
 ## API
 
@@ -46,11 +48,19 @@ The React client uses React Query for session state, mutations, and the user's s
 
 Start the backend and open `http://localhost:3000/api-docs` to view and try the Swagger UI documentation. Protected routes support JWT Bearer authentication through Swagger's **Authorize** button. Browser clients can continue using the existing HTTP-only authentication cookies.
 
-Example authenticated creation request:
+Example authenticated creation request without a custom alias:
 
 ```json
 { "originalUrl": "https://example.com/article" }
 ```
+
+Example authenticated creation request with a custom alias:
+
+```json
+{ "originalUrl": "https://example.com/article", "alias": "my-link" }
+```
+
+Aliases are optional, 3–30 characters long, and may contain letters, numbers, hyphens, and underscores. Reserved aliases such as `api`, `login`, `signup`, `auth`, `admin`, and `health` are rejected. If no alias is supplied, the server generates a unique seven-character NanoID.
 
 The analytics overview accepts `day`, `week`, `month`, or `year` as its optional `interval`. It returns total clicks, unique and repeat visitor counts, a click timeline, and country/browser/device/OS breakdowns.
 
@@ -89,17 +99,32 @@ Open the Vite address displayed in the terminal (normally `http://localhost:5173
 
 `PORT` defaults to `3000`; set it in `.env` when needed. Keep `APP_KEY` aligned with that public backend address, for example `http://localhost:3000/api/`.
 
+## Backend tests
+
+Run the complete backend API test suite from the `backend` directory:
+
+```bash
+npm test -- --silent
+```
+
+The suite uses an in-memory MongoDB instance and currently covers signup, login, logout, refresh-token rotation and invalidation, protected routes, URL creation/listing/deletion, custom and generated aliases, redirects, ownership checks, analytics overview/recent endpoints, and click recording.
+
 ## Current status
 
 Completed:
 
 - Authentication, URL CRUD, ownership checks, and public redirects
+- URL creation and alias validation
+- Refresh-token rotation with old-token reuse protection
+- Logout invalidation for access and refresh sessions
 - Total click tracking and detailed analytics event logging
-- Analytics overview API
+- Analytics overview and recent-click APIs
+- Automated backend API tests (47 tests passing)
 
 Remaining:
 
 - Frontend analytics dashboard
-- Automated backend tests
+- CORS configuration for the production frontend
 - Deployment configuration and production validation
+- Deployed API verification with production MongoDB, JWT secrets, cookies, and redirects
 - Redis caching (optional enhancement)

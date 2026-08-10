@@ -1,10 +1,11 @@
 const User=require("../models/user.model")
 const removeRefreshToken=async(id)=>{
     return await User.findByIdAndUpdate(id,{
-        refreshToken:""
+        refreshToken:"",
+        refreshTokenJti:""
     },
 {
-    new:true
+    returnDocument:"after"
 })
 }
 module.exports={removeRefreshToken};
