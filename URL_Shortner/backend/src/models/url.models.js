@@ -21,6 +21,11 @@ const urlSchema=new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         index:true,
+    },
+    expiresAt:{
+        type:Date,
+        required:true,
+        index:true,
     }
 
 },{timestamps:true})

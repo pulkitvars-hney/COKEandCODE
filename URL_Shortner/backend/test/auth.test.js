@@ -86,15 +86,23 @@ describe("Authentication API", () => {
             await signupUser();
         });
         //! checking wether we are getting the user and token after sucessful login
-        test("valid credentials return the user and tokens", async () => {
+        test("email identifier returns the user and tokens", async () => {
             const response = await request(app)
                 .post("/api/auth/login")
-                .send({ email: validUser.email, password: validUser.password });
+                .send({ identifier: validUser.email, password: validUser.password });
 
             expect(response.statusCode).toBe(200);
             expect(response.body.data.user.password).toBeUndefined();
             expect(getCookie(response, "accessToken")).toBeDefined();
             expect(getCookie(response, "refreshToken")).toBeDefined();
+        });
+        test("username identifier returns the user and tokens", async () => {
+            const response = await request(app)
+                .post("/api/auth/login")
+                .send({ identifier: validUser.username, password: validUser.password });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.data.user.username).toBe(validUser.username);
         });
         //! testing for wrong credentials and missing feilds
         test("wrong email returns 401", async () => {
@@ -113,7 +121,7 @@ describe("Authentication API", () => {
             expect(response.statusCode).toBe(401);
         });
 
-        test("missing email returns 400", async () => {
+        test("missing identifier returns 400", async () => {
             const response = await request(app)
                 .post("/api/auth/login")
                 .send({ password: validUser.password });
@@ -124,9 +132,17 @@ describe("Authentication API", () => {
         test("missing password returns 400", async () => {
             const response = await request(app)
                 .post("/api/auth/login")
-                .send({ email: validUser.email });
+                .send({ identifier: validUser.email });
 
             expect(response.statusCode).toBe(400);
+        });
+
+        test("legacy email field remains supported", async () => {
+            const response = await request(app)
+                .post("/api/auth/login")
+                .send({ email: validUser.email, password: validUser.password });
+
+            expect(response.statusCode).toBe(200);
         });
     });
 

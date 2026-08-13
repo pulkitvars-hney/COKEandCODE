@@ -1,6 +1,6 @@
 const nanoid = require("../utils/nanoid.js");
 const urlSchema = require("../models/url.models.js");
-const saveurl=require("../DAo/url.dao.js");
+const saveurl = require("../DAo/url.dao.js");
 const ApiError = require("../utils/ApiError.js");
 const { RESERVED_ALIASES } = require("../constant/reservedAliases");
 
@@ -27,11 +27,11 @@ const buildShortUrl = (shortCode) => {
     return `${baseUrl.replace(/\/?$/, "/")}${shortCode}`;
 };
 
-const createUniqueShortCode = async (url, userId) => {
+const createUniqueShortCode = async (url, userId, expiresAt) => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const shortCode = nanoid.genratenanoid(7);
         try {
-            await saveurl.saveshortUrl(shortCode, url, userId);
+            await saveurl.saveshortUrl(shortCode, url, userId, expiresAt);
             return shortCode;
         } catch (error) {
             if (error?.code !== 11000) throw error;
@@ -40,16 +40,21 @@ const createUniqueShortCode = async (url, userId) => {
     throw new ApiError(500, "Unable to generate a unique short URL");
 };
 
-const CreateShortUrlwithoutuser = async (url) => {
-    const normalizedUrl = validateUrl(url);
-    const shortCode = await createUniqueShortCode(normalizedUrl);
-    return buildShortUrl(shortCode);
+// const CreateShortUrlwithoutuser = async (url) => {
+//     const normalizedUrl = validateUrl(url);
+//     const shortCode = await createUniqueShortCode(normalizedUrl);
+//     return buildShortUrl(shortCode);
 
-}
+// }
 
-const CreateShortUrlwithuser = async (url,userid,alias) => {
+const CreateShortUrlwithuser = async (url, userid, alias) => {
     const normalizedUrl = validateUrl(url);
     const normalizedAlias = alias?.trim().toLowerCase();
+    const activeUrlCount = await saveurl.countActiveUrlsByUser(userid);
+    if (activeUrlCount >= 7) {
+        throw new ApiError(403, "Free plan allows maximum 7 active URLs")
+    }
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     if (normalizedAlias) {
         if (RESERVED_ALIASES.has(normalizedAlias)) {
@@ -62,7 +67,7 @@ const CreateShortUrlwithuser = async (url,userid,alias) => {
         }
 
         try {
-            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid);
+            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid, expiresAt);
         } catch (error) {
             // Protect against two requests claiming the same alias concurrently.
             if (error?.code === 11000) {
@@ -76,17 +81,17 @@ const CreateShortUrlwithuser = async (url,userid,alias) => {
     const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid });
     if (existingUrl) return buildShortUrl(existingUrl.shortUrl);
 
-    const shortCode = await createUniqueShortCode(normalizedUrl, userid);
+    const shortCode = await createUniqueShortCode(normalizedUrl, userid, expiresAt);
     return buildShortUrl(shortCode);
 
 }
 
 const GetOriginalUrl = async (shortUrl) => {
-    return urlSchema.findOneAndUpdate({ shortUrl },{$inc:{clicks:1}});
-}
+    return urlSchema.findOneAndUpdate({ shortUrl ,expiresAt:{$gt:new Date()}}, { $inc: { clicks: 1 } },{new:true});
+};
 
-const getMyUrls=async(userId)=>{
-    const urls=await saveurl.getUrlsByUserId(userId);
+const getMyUrls = async (userId) => {
+    const urls = await saveurl.getUrlsByUserId(userId);
     return urls.map((url) => ({
         ...url.toObject(),
         shortCode: url.shortUrl,
@@ -94,17 +99,18 @@ const getMyUrls=async(userId)=>{
     }));
 }
 
-const deleteUrlService=async(id,userid)=>{
-    const url=await saveurl.getUrlById(id);
-    if(!url){
-        throw new ApiError(404,"No url found");
+const deleteUrlService = async (id, userid) => {
+    const url = await saveurl.getUrlById(id);
+    if (!url) {
+        throw new ApiError(404, "No url found");
     }
     //url.userId is a MongoDB ObjectId, while userid may also be an ObjectId. 
     //Comparing them with !== usually returns true even if they represent the same value
-    if(url.userId.toString()!==userid.toString()){
-        throw new ApiError(403,"Access forbidden");
+    if (url.userId.toString() !== userid.toString()) {
+        throw new ApiError(403, "Access forbidden");
     }
-    const deleteurl=await saveurl.deletUrl(id,userid)
+    const deleteurl = await saveurl.deletUrl(id, userid)
     return deleteurl;
 }
-module.exports={CreateShortUrlwithuser, GetOriginalUrl,CreateShortUrlwithoutuser,getMyUrls,deleteUrlService};
+
+module.exports = { CreateShortUrlwithuser, GetOriginalUrl, getMyUrls, deleteUrlService };

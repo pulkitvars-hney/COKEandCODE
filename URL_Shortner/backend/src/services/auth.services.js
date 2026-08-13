@@ -24,6 +24,7 @@ const signup = async (userdata) => {
 
     // Pass one object so future user fields can be added without changing every function signature.
     const createdUser = await createUser(userdata);
+    
     return createdUser; // The controller needs the created document to build its response.
 }
 module.exports = { signup };

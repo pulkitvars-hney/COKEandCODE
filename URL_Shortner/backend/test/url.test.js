@@ -41,7 +41,11 @@ describe("URL shortening API", () => {
 
         expect(response.statusCode).toBe(201);
         expect(response.body.shortUrl).toMatch(/\/api\/[A-Za-z0-9_-]{7}$/);
-        expect(await Url.countDocuments()).toBe(1);
+        const storedUrl = await Url.findOne();
+        expect(storedUrl).toEqual(expect.objectContaining({
+            expiresAt: expect.any(Date),
+        }));
+        expect(storedUrl.expiresAt.getTime()).toBeGreaterThan(Date.now());
     });
 
     test("stores and redirects a generated short URL", async () => {
@@ -70,9 +74,60 @@ describe("URL shortening API", () => {
 
         expect(response.statusCode).toBe(201);
         expect(response.body.shortUrl).toMatch(/\/api\/my-link$/);
-        expect(await Url.findOne({ shortUrl: "my-link" })).toEqual(expect.objectContaining({
+        const storedUrl = await Url.findOne({ shortUrl: "my-link" });
+        expect(storedUrl).toEqual(expect.objectContaining({
             originalUrl: "https://example.com/article",
+            expiresAt: expect.any(Date),
         }));
+        expect(storedUrl.expiresAt.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    test("allows a user to create exactly seven active URLs and rejects an eighth", async () => {
+        const cookie = await createAuthCookie();
+
+        for (let index = 1; index <= 7; index += 1) {
+            const response = await request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({ originalUrl: `https://example.com/active-${index}` });
+
+            expect(response.statusCode).toBe(201);
+        }
+
+        expect(await Url.countDocuments()).toBe(7);
+
+        const response = await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/active-8" });
+
+        expect(response.statusCode).toBe(403);
+        expect(await Url.countDocuments()).toBe(7);
+    });
+
+    test("does not count expired URLs toward a user's active URL limit", async () => {
+        const cookie = await createAuthCookie();
+
+        for (let index = 1; index <= 7; index += 1) {
+            await request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({ originalUrl: `https://example.com/expiring-${index}` });
+        }
+
+        const urlToExpire = await Url.findOne({ shortUrl: { $exists: true } });
+        await Url.updateOne(
+            { _id: urlToExpire._id },
+            { $set: { expiresAt: new Date(Date.now() - 1_000) } }
+        );
+
+        const response = await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/replacement" });
+
+        expect(response.statusCode).toBe(201);
+        expect(await Url.countDocuments()).toBe(8);
     });
 
     test.each([
@@ -171,6 +226,22 @@ describe("URL shortening API", () => {
         expect(response.headers.location).toBe("https://example.com/redirect-target");
     });
 
+    test("does not redirect an expired short URL", async () => {
+        const cookie = await createAuthCookie();
+        await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/expired", alias: "expired-link" });
+        await Url.updateOne(
+            { shortUrl: "expired-link" },
+            { $set: { expiresAt: new Date(Date.now() - 1_000) } }
+        );
+
+        const response = await request(app).get("/api/expired-link");
+
+        expect(response.statusCode).toBe(404);
+    });
+
     test("returns 404 for a nonexistent alias", async () => {
         const response = await request(app).get("/api/does-not-exist");
         expect(response.statusCode).toBe(404);
@@ -209,5 +280,25 @@ describe("URL shortening API", () => {
         expect(redirectResponse.statusCode).toBe(302);
         expect(storedUrl.clicks).toBe(1);
         expect(await Analytics.countDocuments({ urlId: storedUrl._id })).toBe(1);
+    });
+
+    test("does not record a click when an expired short URL is requested", async () => {
+        const cookie = await createAuthCookie();
+        await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/expired-analytics", alias: "expired-analytics" });
+        const storedUrl = await Url.findOne({ shortUrl: "expired-analytics" });
+        await Url.updateOne(
+            { _id: storedUrl._id },
+            { $set: { expiresAt: new Date(Date.now() - 1_000) } }
+        );
+
+        const response = await request(app).get("/api/expired-analytics");
+        const unchangedUrl = await Url.findById(storedUrl._id);
+
+        expect(response.statusCode).toBe(404);
+        expect(unchangedUrl.clicks).toBe(0);
+        expect(await Analytics.countDocuments({ urlId: storedUrl._id })).toBe(0);
     });
 });

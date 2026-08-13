@@ -2,13 +2,14 @@ const mongose =require("mongoose");
 const urlschema=require("../models/url.models.js");
 
 
-const saveshortUrl=async (shorturl,longurl,userid)=>{
+const saveshortUrl=async (shorturl,longurl,userId,expiresAt)=>{
     const newurl=new urlschema({
         originalUrl:longurl,
-        shortUrl:shorturl
+        shortUrl:shorturl,
+        expiresAt
     })
-    if(userid){
-        newurl.userId=userid;
+    if(userId){
+        newurl.userId=userId;
     }
    return await newurl.save();
     
@@ -30,4 +31,11 @@ const deletUrl=async(Id)=>{
     return await urlschema.findByIdAndDelete(Id);
 }
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl};
+const countActiveUrlsByUser=async(userId)=>{
+    return await urlschema.countDocuments({
+        userId:userId,
+        expiresAt:{$gt:new Date()}
+    });// needs one filter object, and inside that object we're giving it two conditions:
+}
+
+module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser};
