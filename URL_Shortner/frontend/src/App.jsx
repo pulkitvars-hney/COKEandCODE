@@ -1,90 +1,271 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import './App.css'
+import { api, countActiveUrls, getCurrentUser, MAX_ACTIVE_URLS } from './lib/api'
+import LandingHero from './components/landing/LandingHero'
+import ShortenForm from './components/dashboard/ShortenForm'
+import LinkList from './components/dashboard/LinkList'
+import AnalyticsPanel from './components/analytics/AnalyticsPanel'
+import SubscriptionPanel from './components/subscription/SubscriptionPanel'
+import ThemeToggle from './components/ui/ThemeToggle'
+import ExpiredPage from './components/ui/ExpiredPage'
 
-const api = async (path, options = {}) => {
-  const response = await fetch(path, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.message || 'Something went wrong. Please try again.')
-  return data
-}
+const tabs = [
+  { id: 'links', label: 'Links', icon: '⌁' },
+  { id: 'plan', label: 'Plan', icon: '◈' },
+]
 
-const getCurrentUser = async () => {
-  try {
-    const response = await api('/api/auth/me')
-    return response.data.user
-  } catch (error) {
-    if (error.message === 'Unauthorized Request' || error.message === 'Invalid or expired access token') return null
-    throw error
-  }
-}
-
-function LinkIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a5 5 0 0 0 7.07.01l2.12-2.12a5 5 0 0 0-7.07-7.07l-1.21 1.2" /><path d="M13.4 10.6a5 5 0 0 0-7.07-.01L4.21 12.7a5 5 0 0 0 7.07 7.07l1.2-1.2" /></svg>
-}
-
-function AuthForm({ onAuthenticated }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ username: '', email: '', identifier: '', password: '' })
-  const [notice, setNotice] = useState('')
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (mode === 'signup') return api('/api/auth/signup', { method: 'POST', body: JSON.stringify({ username: form.username, email: form.email, password: form.password }) })
-      return api('/api/auth/login', { method: 'POST', body: JSON.stringify({ identifier: form.identifier, password: form.password }) })
-    },
-    onSuccess: (response) => {
-      if (mode === 'signup') {
-        setNotice('Account created. Please log in to continue.')
-        setMode('login')
-        setForm((current) => ({ ...current, password: '' }))
-      } else onAuthenticated(response.data.user)
-    },
-  })
-  const update = (event) => setForm({ ...form, [event.target.name]: event.target.value })
-  const submit = (event) => { event.preventDefault(); setNotice(''); mutation.mutate() }
-
-  return <section className="auth-card" aria-label="Authentication">
-    <div className="auth-toggle"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setNotice('') }}>Log in</button><button className={mode === 'signup' ? 'active' : ''} onClick={() => { setMode('signup'); setNotice('') }}>Create account</button></div>
-    <form onSubmit={submit}>
-      {mode === 'signup' && <><label>Username<input name="username" value={form.username} onChange={update} autoComplete="username" required /></label><label>Email<input name="email" type="email" value={form.email} onChange={update} autoComplete="email" required /></label></>}
-      {mode === 'login' && <label>Email or username<input name="identifier" value={form.identifier} onChange={update} autoComplete="username" required /></label>}
-      <label>Password<input name="password" type="password" value={form.password} onChange={update} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required /></label>
-      {mutation.error && <p className="error">{mutation.error.message}</p>}{notice && <p className="success">{notice}</p>}
-      <button className="primary-button" disabled={mutation.isPending}>{mutation.isPending ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}</button>
-    </form>
-  </section>
-}
-
-function Dashboard({ user, onLogout }) {
-  const [url, setUrl] = useState('')
-  const [shortUrl, setShortUrl] = useState('')
-  const [copied, setCopied] = useState(false)
+export default function App() {
   const queryClient = useQueryClient()
-  const urlsQuery = useQuery({ queryKey: ['urls'], queryFn: async () => (await api('/api/url/myurls')).data })
-  const createMutation = useMutation({ mutationFn: async (originalUrl) => (await api('/api/url/create', { method: 'POST', body: JSON.stringify({ originalUrl }) })).shortUrl, onSuccess: (created) => { setShortUrl(created); setUrl(''); queryClient.invalidateQueries({ queryKey: ['urls'] }) } })
-  const deleteMutation = useMutation({ mutationFn: (id) => api(`/api/url/${id}`, { method: 'DELETE' }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['urls'] }) })
-  const submit = (event) => { event.preventDefault(); createMutation.mutate(url.trim()) }
-  const copy = async (value) => { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 1500) }
+  const [activeTab, setActiveTab] = useState('links')
+  const [selectedLink, setSelectedLink] = useState(null)
+  const [isExpiredPage, setIsExpiredPage] = useState(() => 
+    window.location.pathname === '/expired' || window.location.pathname === '/404'
+  )
 
-  return <>
-    <section className="dashboard-intro"><div><p className="eyebrow"><span /> YOUR LINK WORKSPACE</p><h1>Welcome back,<br /><em>{user.username}.</em></h1><p className="hero-copy">Create short, shareable links and keep your collection in one place.</p></div><button className="text-button" onClick={onLogout}>Log out</button></section>
-    <section className="workspace">
-      <form className="shorten-card" onSubmit={submit}><label htmlFor="url-input">Paste a long URL</label><div className="input-row"><input id="url-input" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://your-long-link.com/..." required /><button disabled={createMutation.isPending}>{createMutation.isPending ? 'Shortening…' : 'Shorten link →'}</button></div>{createMutation.error && <p className="error">{createMutation.error.message}</p>}{shortUrl && <div className="result"><div><span className="result-label">YOUR SHORT LINK</span><a href={shortUrl} target="_blank" rel="noreferrer">{shortUrl}</a></div><button className="copy-button" type="button" onClick={() => copy(shortUrl)}>{copied ? 'Copied!' : 'Copy link'}</button></div>}</form>
-      <section className="links-panel"><div className="panel-heading"><h2>Your links</h2><span>{urlsQuery.data?.length || 0} total</span></div>{urlsQuery.isLoading ? <p className="muted">Loading your links…</p> : urlsQuery.error ? <p className="error">{urlsQuery.error.message}</p> : urlsQuery.data?.length === 0 ? <p className="muted">Your shortened links will appear here.</p> : <ul className="link-list">{urlsQuery.data.map((item) => { const link = item.shortUrl; return <li key={item._id}><div><a href={link} target="_blank" rel="noreferrer">{link}</a><p title={item.originalUrl}>{item.originalUrl}</p></div><div className="link-actions"><span>{item.clicks} clicks</span><button onClick={() => copy(link)}>Copy</button><button className="delete" onClick={() => deleteMutation.mutate(item._id)} disabled={deleteMutation.isPending}>Delete</button></div></li> })}</ul>}</section>
-    </section>
-  </>
-}
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsExpiredPage(window.location.pathname === '/expired' || window.location.pathname === '/404')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
-function App() {
-  const queryClient = useQueryClient()
-  const userQuery = useQuery({ queryKey: ['currentUser'], queryFn: getCurrentUser })
-  const logout = useMutation({ mutationFn: () => api('/api/auth/logout', { method: 'POST' }), onSettled: () => { queryClient.setQueryData(['currentUser'], null); queryClient.removeQueries({ queryKey: ['urls'] }) } })
+  const userQuery = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: getCurrentUser,
+  })
+
+  const logout = useMutation({
+    mutationFn: () => api('/api/auth/logout', { method: 'POST' }),
+    onSettled: () => {
+      queryClient.setQueryData(['currentUser'], null)
+      queryClient.removeQueries({ queryKey: ['urls'] })
+      queryClient.removeQueries({ queryKey: ['analytics'] })
+      queryClient.removeQueries({ queryKey: ['subscription'] })
+      setSelectedLink(null)
+      setActiveTab('links')
+    },
+  })
+
   const user = userQuery.data
-  return <main className="page-shell"><nav className="nav"><a className="brand" href="#top"><span className="brand-mark"><LinkIcon /></span>shortly</a>{user && <span className="user-name">@{user.username}</span>}</nav>{userQuery.isLoading ? <p className="loading">Checking your session…</p> : user ? <Dashboard user={user} onLogout={() => logout.mutate()} /> : <section className="hero" id="top"><p className="eyebrow"><span /> SIMPLE LINKS, BIG IMPACT</p><h1>Make every link<br /><em>count.</em></h1><p className="hero-copy">Turn long, messy URLs into short links that are easy to share and simple to manage.</p><AuthForm onAuthenticated={(loggedInUser) => queryClient.setQueryData(['currentUser'], loggedInUser)} /></section>}<footer>© 2026 shortly <span>·</span> Built for sharing</footer></main>
+
+  if (isExpiredPage) {
+    return (
+      <ExpiredPage
+        onGoHome={() => {
+          window.history.pushState({}, '', '/')
+          setIsExpiredPage(false)
+        }}
+      />
+    )
+  }
+
+  if (userQuery.isLoading) {
+    return (
+      <div className="page-bg flex min-h-screen items-center justify-center">
+        <p className="text-sm text-[var(--text-muted)]">Checking your session…</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <LandingHero
+        onAuthenticated={(loggedInUser) => {
+          queryClient.setQueryData(['currentUser'], loggedInUser)
+        }}
+      />
+    )
+  }
+
+  return (
+    <Dashboard
+      user={user}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      selectedLink={selectedLink}
+      onSelectLink={setSelectedLink}
+      onLogout={() => logout.mutate()}
+      loggingOut={logout.isPending}
+    />
+  )
 }
 
-export default App
+function Dashboard({ user, activeTab, onTabChange, selectedLink, onSelectLink, onLogout, loggingOut }) {
+  const queryClient = useQueryClient()
+  const [deletingId, setDeletingId] = useState(null)
+
+  const urlsQuery = useQuery({
+    queryKey: ['urls'],
+    queryFn: async () => (await api('/api/url/myurls')).data,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api(`/api/url/${id}`, { method: 'DELETE' }),
+    onMutate: (id) => setDeletingId(id),
+    onSettled: () => setDeletingId(null),
+    onSuccess: (_, id) => {
+      if (selectedLink?._id === id) onSelectLink(null)
+      queryClient.invalidateQueries({ queryKey: ['urls'] })
+    },
+  })
+
+  const urls = urlsQuery.data || []
+  const activeCount = countActiveUrls(urls)
+
+  return (
+    <div className="page-bg min-h-screen lg:flex">
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-glass)] px-5 py-6 backdrop-blur-xl lg:flex">
+        <Brand />
+        <nav className="mt-8 space-y-2">
+          {tabs.map((tab) => (
+            <SidebarButton
+              key={tab.id}
+              active={activeTab === tab.id}
+              onClick={() => {
+                onTabChange(tab.id)
+                if (tab.id !== 'links') onSelectLink(null)
+              }}
+            >
+              <span aria-hidden="true">{tab.icon}</span>
+              {tab.label}
+            </SidebarButton>
+          ))}
+        </nav>
+
+        <div className="mt-auto space-y-4">
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Signed in</p>
+            <p className="mt-1 truncate text-sm font-bold">@{user.username}</p>
+            <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={loggingOut}
+              className="flex-1 rounded-full border border-[var(--border)] px-4 py-2.5 text-sm font-semibold text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] disabled:opacity-60"
+            >
+              {loggingOut ? 'Logging out…' : 'Log out'}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--bg-glass)] px-5 py-4 backdrop-blur-xl sm:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="lg:hidden">
+              <Brand compact />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Workspace</p>
+              <h1 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
+                {activeTab === 'plan' ? 'Your subscription' : selectedLink ? 'Link analytics' : 'Your link studio'}
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 lg:hidden">
+              <ThemeToggle />
+              <button
+                type="button"
+                onClick={onLogout}
+                disabled={loggingOut}
+                className="rounded-full border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]"
+              >
+                Exit
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2 lg:hidden">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  onTabChange(tab.id)
+                  if (tab.id !== 'links') onSelectLink(null)
+                }}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-100 ${
+                  activeTab === tab.id
+                    ? 'bg-brand text-black border-2 border-[var(--text-primary)] shadow-neo-sm translate-x-[-1px] translate-y-[-1px]'
+                    : 'border-2 border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:border-[var(--text-primary)]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        <main className="flex-1 px-5 py-6 sm:px-8 sm:py-8">
+          {activeTab === 'plan' ? (
+            <SubscriptionPanel />
+          ) : selectedLink ? (
+            <AnalyticsPanel link={selectedLink} onClose={() => onSelectLink(null)} />
+          ) : (
+            <div className="mx-auto grid max-w-6xl gap-6">
+              <ShortenForm
+                activeCount={activeCount}
+                maxActive={MAX_ACTIVE_URLS}
+                onCreated={() => queryClient.invalidateQueries({ queryKey: ['urls'] })}
+              />
+              {urlsQuery.isLoading ? (
+                <p className="text-sm text-[var(--text-muted)]">Loading your links…</p>
+              ) : urlsQuery.error ? (
+                <p className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                  {urlsQuery.error.message}
+                </p>
+              ) : (
+                <LinkList
+                  urls={urls}
+                  selectedId={selectedLink?._id}
+                  deletingId={deletingId}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                  onSelectAnalytics={(link) => onSelectLink(link)}
+                />
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
+
+function Brand({ compact = false }) {
+  return (
+    <a href="#top" className={`flex items-center gap-3 font-extrabold tracking-tight ${compact ? 'text-base' : 'text-lg'}`}>
+      <span className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-black">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M10.59 13.41a1 1 0 0 0 1.42 0l2.83-2.83a4 4 0 1 0-5.66-5.66l-1.42 1.41a1 1 0 1 0 1.42 1.42l1.41-1.41a2 2 0 1 1 2.83 2.83l-2.83 2.83a1 1 0 0 0 0 1.42Z"
+          />
+          <path
+            fill="currentColor"
+            d="M13.41 10.59a1 1 0 0 0-1.42 0L9.16 13.42a4 4 0 1 0 5.66 5.66l1.42-1.41a1 1 0 0 0-1.42-1.42l-1.41 1.41a2 2 0 1 1-2.83-2.83l2.83-2.83a1 1 0 0 0 0-1.42Z"
+          />
+        </svg>
+      </span>
+      shortly
+    </a>
+  )
+}
+
+function SidebarButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition-all duration-100 border-2 ${
+        active
+          ? 'bg-brand text-black border-[var(--text-primary)] shadow-neo-sm translate-x-[-1px] translate-y-[-1px]'
+          : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--text-primary)] hover:shadow-neo-sm hover:translate-x-[-1px] hover:translate-y-[-1px]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
