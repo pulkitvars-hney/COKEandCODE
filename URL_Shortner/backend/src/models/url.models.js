@@ -22,9 +22,20 @@ const urlSchema=new mongoose.Schema({
         ref: "User",
         index:true,
     },
+    plan: {
+    type: String,
+    enum: ["free", "pro"],
+    required: true,
+},
+
+subscriptionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "subscription",
+    default: null,
+},
     expiresAt:{
         type:Date,
-        required:true,
+        default:null,
         index:true,
     }
 

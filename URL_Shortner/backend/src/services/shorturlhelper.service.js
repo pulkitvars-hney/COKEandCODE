@@ -3,7 +3,7 @@ const urlSchema = require("../models/url.models.js");
 const saveurl = require("../DAo/url.dao.js");
 const ApiError = require("../utils/ApiError.js");
 const { RESERVED_ALIASES } = require("../constant/reservedAliases");
-
+const { createDefaultSubscription, currentSubscription } = require("../services/subscription.service.js")
 const validateUrl = (value) => {
     if (typeof value !== "string" || !value.trim()) {
         throw new ApiError(400, "originalUrl is required");
@@ -27,11 +27,13 @@ const buildShortUrl = (shortCode) => {
     return `${baseUrl.replace(/\/?$/, "/")}${shortCode}`;
 };
 
-const createUniqueShortCode = async (url, userId, expiresAt) => {
+const createUniqueShortCode = async (url, userId, expiresAt, plan,
+    subscriptionId) => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const shortCode = nanoid.genratenanoid(7);
         try {
-            await saveurl.saveshortUrl(shortCode, url, userId, expiresAt);
+            await saveurl.saveshortUrl(shortCode, url, userId, expiresAt, plan,
+                subscriptionId);
             return shortCode;
         } catch (error) {
             if (error?.code !== 11000) throw error;
@@ -49,13 +51,27 @@ const createUniqueShortCode = async (url, userId, expiresAt) => {
 
 const CreateShortUrlwithuser = async (url, userid, alias) => {
     const normalizedUrl = validateUrl(url);
-    const normalizedAlias = alias?.trim().toLowerCase();
-    const activeUrlCount = await saveurl.countActiveUrlsByUser(userid);
-    if (activeUrlCount >= 7) {
-        throw new ApiError(403, "Free plan allows maximum 7 active URLs")
-    }
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const subscription = await currentSubscription(userid);
+    let expiresAt ;
+    let subscriptionId = null;
 
+    const normalizedAlias = alias?.trim().toLowerCase();
+    if (subscription.plan === "free") {
+
+        const activeUrlCount = await saveurl.countActiveUrlsByUser(userid);
+        if (activeUrlCount >= 7) {
+            throw new ApiError(403, "Free plan allows maximum 7 active URLs")
+        }
+        expiresAt = new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+        );
+    }
+    if (subscription.plan === "pro") {
+        subscriptionId = subscription._id;
+        expiresAt=new Date(subscription.currentPeriodEnd);
+
+        expiresAt.setDate(expiresAt.getDate()+3);
+    }
     if (normalizedAlias) {
         if (RESERVED_ALIASES.has(normalizedAlias)) {
             throw new ApiError(400, "This alias is reserved");
@@ -81,13 +97,13 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
     const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid });
     if (existingUrl) return buildShortUrl(existingUrl.shortUrl);
 
-    const shortCode = await createUniqueShortCode(normalizedUrl, userid, expiresAt);
+    const shortCode = await createUniqueShortCode(normalizedUrl, userid, expiresAt,subscription.plan,subscriptionId);
     return buildShortUrl(shortCode);
 
 }
 
 const GetOriginalUrl = async (shortUrl) => {
-    return urlSchema.findOneAndUpdate({ shortUrl ,expiresAt:{$gt:new Date()}}, { $inc: { clicks: 1 } },{new:true});
+    return urlSchema.findOneAndUpdate({ shortUrl, expiresAt: { $gt: new Date() } }, { $inc: { clicks: 1 } }, { new: true });
 };
 
 const getMyUrls = async (userId) => {

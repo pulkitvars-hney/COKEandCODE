@@ -1,6 +1,7 @@
 const {findUserByEmail,findByUsername}=require("../DAo/user.dao");
 const ApiError=require("../utils/ApiError");
 const User=require("../models/user.model");
+const {expireUserSubscription}=require("../services/subscription.service");
 const crypto = require("crypto");
 const {z}=require("zod");
 
@@ -29,6 +30,8 @@ const login=async(userdata)=>{
         throw new ApiError(401, "Invalid credentials");
     }
 
+    await expireUserSubscription(user._id);
+    
     const {accessToken,refreshToken}=await generateAccessandRefreshToken(user._id);
      return {
         user,

@@ -54,5 +54,7 @@ const deactivateSubscription = async (subscriptionId,session=null) => {
         }
     );
 };
-
-module.exports={createSubscription,getActiveSubscriptionByUserId,getSubscriptionHistory,deactivateSubscription,expireSubscriptionsByUserId}
+const getSubscriptionById = async (subscriptionId) => {
+    return await subscriptionSchema.findById(subscriptionId);
+};
+module.exports={createSubscription,getActiveSubscriptionByUserId,getSubscriptionHistory,deactivateSubscription,expireSubscriptionsByUserId,getSubscriptionById}

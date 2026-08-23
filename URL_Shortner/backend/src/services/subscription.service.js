@@ -1,5 +1,6 @@
 const mongoose=require("mongoose");
-const {createSubscription,getActiveSubscriptionByUserId,getSubscriptionHistory,deactivateSubscription}=require("../DAo/subscription.DAO");
+const{updateProUrlExpiry}=require("../DAo/url.dao")
+const {createSubscription,getActiveSubscriptionByUserId,getSubscriptionHistory,deactivateSubscription,expireSubscriptionsByUserId}=require("../DAo/subscription.DAO");
 const ApiError=require("../utils/ApiError");
 // const subscription=require("../models/subscription.model");
 
@@ -61,4 +62,7 @@ const upgradeSubscription=async(userId,newPlan)=>{
     }
 }
 
-module.exports={createDefaultSubscription,currentSubscription,SubscriptionHistory,upgradeSubscription};
+const expireUserSubscription=async(userId)=>{
+    return await expireSubscriptionsByUserId(userId);
+}
+module.exports={createDefaultSubscription,currentSubscription,SubscriptionHistory,upgradeSubscription,expireUserSubscription};

@@ -2,11 +2,14 @@ const mongose =require("mongoose");
 const urlschema=require("../models/url.models.js");
 
 
-const saveshortUrl=async (shorturl,longurl,userId,expiresAt)=>{
+const saveshortUrl=async (shorturl,longurl,userId,expiresAt ,plan,
+    subscriptionId)=>{
     const newurl=new urlschema({
         originalUrl:longurl,
         shortUrl:shorturl,
-        expiresAt
+        expiresAt,
+         plan,
+    subscriptionId
     })
     if(userId){
         newurl.userId=userId;
@@ -38,4 +41,18 @@ const countActiveUrlsByUser=async(userId)=>{
     });// needs one filter object, and inside that object we're giving it two conditions:
 }
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser};
+const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
+    return await urlschema.updateMany(
+        {
+            subscriptionId,
+            plan: "pro",
+        },
+        {
+            $set: {
+                expiresAt,
+            },
+        }
+    );
+};
+
+module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser,updateProUrlExpiry};
