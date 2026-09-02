@@ -40,9 +40,14 @@ The React client uses React Query for session state, mutations, and the user's s
 | POST | `/api/url/create` | Create a short URL (authenticated) |
 | GET | `/api/url/myurls` | List the current user's URLs (authenticated) |
 | DELETE | `/api/url/:id` | Delete one of the current user's URLs (authenticated) |
+| POST | `/api/url/:id/upgrade` | Upgrade one owned Free URL to Pro (active Pro subscription required) |
+| POST | `/api/url/upgrade-all` | Upgrade all eligible owned Free URLs to Pro (active Pro subscription required) |
 | GET | `/api/:shortUrl` | Redirect a public short URL |
 | GET | `/api/analytics/:urlId/overview?interval=day` | View analytics for an owned URL (authenticated) |
 | GET | `/api/analytics/:urlId/recent?limit=20` | View recent clicks for an owned URL (authenticated) |
+| GET | `/api/subscription/current` | Read or lazily create the current subscription (authenticated) |
+| GET | `/api/subscription/history` | View subscription history (authenticated) |
+| POST | `/api/subscription/upgrade` | Switch the account plan to Pro (`{ "plan": "pro" }`) (authenticated) |
 
 ## API documentation
 
@@ -107,7 +112,7 @@ Run the complete backend API test suite from the `backend` directory:
 npm test -- --silent
 ```
 
-The suite uses an in-memory MongoDB instance and currently covers signup, login, logout, refresh-token rotation and invalidation, protected routes, URL creation/listing/deletion, custom and generated aliases, redirects, ownership checks, analytics overview/recent endpoints, and click recording.
+The suite uses an in-memory MongoDB instance and currently covers signup, login, logout, refresh-token rotation and invalidation, protected routes, URL creation/listing/deletion, custom and generated aliases, redirects, ownership checks, analytics overview/recent endpoints, click recording, subscription current/upgrade/history, and explicit Free-to-Pro URL upgrades (single and bulk).
 
 ## Current status
 

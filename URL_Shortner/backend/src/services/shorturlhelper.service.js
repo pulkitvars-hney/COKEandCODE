@@ -83,7 +83,7 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
         }
 
         try {
-            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid, expiresAt);
+            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid, expiresAt,subscription.plan,subscriptionId);
         } catch (error) {
             // Protect against two requests claiming the same alias concurrently.
             if (error?.code === 11000) {
@@ -94,7 +94,7 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
         return buildShortUrl(normalizedAlias);
     }
 
-    const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid });
+    const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid ,expiresAt:{$gt: new Date()}});
     if (existingUrl) return buildShortUrl(existingUrl.shortUrl);
 
     const shortCode = await createUniqueShortCode(normalizedUrl, userid, expiresAt,subscription.plan,subscriptionId);

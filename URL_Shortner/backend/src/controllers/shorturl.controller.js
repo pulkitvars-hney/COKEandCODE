@@ -2,6 +2,7 @@ const { CreateShortUrlwithuser, GetOriginalUrl } = require("../services/shorturl
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse")
 const { getMyUrls, deleteUrlService } = require("../services/shorturlhelper.service")
+const { upgradeUrlToPro, upgradeAllUrlsToPro } = require("../services/subscription.service");
 const AnalyticsService = require("../services/analytic.service");
 const UAParser = require("ua-parser-js");
 const crypto = require("crypto");
@@ -59,4 +60,14 @@ async function deletingmyurl(req, res) {
     return res.status(200).json(new ApiResponse(200, response, "Deltion successful"))
 }
 
-module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl };
+async function upgrademyurl(req, res) {
+    const updatedUrl = await upgradeUrlToPro(req.user._id, req.params.id);
+    return res.status(200).json(new ApiResponse(200, updatedUrl, "URL upgraded to Pro successfully"));
+}
+
+async function upgrademyurls(req, res) {
+    const summary = await upgradeAllUrlsToPro(req.user._id);
+    return res.status(200).json(new ApiResponse(200, summary, "Eligible URLs upgraded to Pro"));
+}
+
+module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl, upgrademyurl, upgrademyurls };

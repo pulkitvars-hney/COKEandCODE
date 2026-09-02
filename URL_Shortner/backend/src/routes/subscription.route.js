@@ -4,6 +4,8 @@ const router = express.Router();
 
 const { verifyjwt } = require("../middlewares/auth.middleware");
 const asyncHandler = require("../utils/asyncHandler");
+const { validate } = require("../middlewares/validate.middleware");
+const { upgradeSubscriptionSchema } = require("../validators/request.validators");
 
 const {
     getCurrentSubscription,
@@ -24,6 +26,7 @@ router.get("/api/subscription/history",
 router.post(
     "/api/subscription/upgrade",
     verifyjwt,
+    validate(upgradeSubscriptionSchema),
     asyncHandler(upgradeSubscriptionController)
 );
 

@@ -18,6 +18,14 @@ const urlIdParamsSchema = z.object({
     id: objectId,
 });
 
+// Account upgrade is the only supported plan change until payments exist.
+// A missing or arbitrary plan previously replaced subscriptions silently.
+const upgradeSubscriptionSchema = z.object({
+    plan: z.literal("pro", {
+        message: "plan must be 'pro'",
+    }),
+});
+
 const analyticsUrlIdParamsSchema = z.object({
     urlId: objectId,
 });
@@ -37,6 +45,7 @@ const recentClicksQuerySchema = z.object({
 module.exports = {
     createUrlSchema,
     urlIdParamsSchema,
+    upgradeSubscriptionSchema,
     analyticsUrlIdParamsSchema,
     analyticsOverviewQuerySchema,
     recentClicksQuerySchema,

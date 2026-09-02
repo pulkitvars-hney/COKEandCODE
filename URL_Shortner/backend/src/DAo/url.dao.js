@@ -55,4 +55,31 @@ const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
     );
 };
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser,updateProUrlExpiry};
+const upgradeUrlById = async (urlId, setData) => {
+    return await urlschema.findByIdAndUpdate(
+        urlId,
+        {
+            $set: setData,
+        },
+        {
+            returnDocument: "after",
+        }
+    );
+};
+
+// Only unexpired Free URLs of this owner are selectable for promotion.
+// Already-Pro URLs and other users' URLs can never match the filter.
+const upgradeFreeUrlsByUserId = async (userId, setData) => {
+    return await urlschema.updateMany(
+        {
+            userId,
+            plan: "free",
+            expiresAt: { $gt: new Date() },
+        },
+        {
+            $set: setData,
+        }
+    );
+};
+
+module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser,updateProUrlExpiry,upgradeUrlById,upgradeFreeUrlsByUserId};
