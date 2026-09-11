@@ -306,6 +306,22 @@ describe("URL-level Pro upgrade API", () => {
             expect(skipped.subscriptionId).toBeNull();
         });
 
+        test("returns zero counts when no eligible Free URLs exist", async () => {
+            const cookie = await createAuthCookie();
+            await request(app).get("/api/subscription/current").set("Cookie", cookie);
+            await upgradeAccountToPro(cookie);
+
+            const response = await request(app)
+                .post("/api/url/upgrade-all")
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.data).toEqual(expect.objectContaining({
+                matchedCount: 0,
+                modifiedCount: 0,
+            }));
+        });
+
         test("rejects bulk upgrades without an active Pro subscription", async () => {
             const cookie = await createAuthCookie();
             await createOwnedUrl(cookie, "https://example.com/no-pro", "no-pro");
