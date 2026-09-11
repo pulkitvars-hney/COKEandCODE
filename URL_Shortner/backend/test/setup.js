@@ -1,10 +1,10 @@
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 const mongoose = require('mongoose');
 
 let mongoserver;//? declaring this outside as we have to use it in afterALL as well
 
 beforeAll(async () => {
-    mongoserver = await MongoMemoryServer.create();
+    mongoserver = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
 
     const uri = mongoserver.getUri();
 

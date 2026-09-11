@@ -2,13 +2,17 @@ const mongose =require("mongoose");
 const urlschema=require("../models/url.models.js");
 
 
-const saveshortUrl=async (shorturl,longurl,userid)=>{
+const saveshortUrl=async (shorturl,longurl,userId,expiresAt ,plan,
+    subscriptionId)=>{
     const newurl=new urlschema({
         originalUrl:longurl,
-        shortUrl:shorturl
+        shortUrl:shorturl,
+        expiresAt,
+         plan,
+    subscriptionId
     })
-    if(userid){
-        newurl.userId=userid;
+    if(userId){
+        newurl.userId=userId;
     }
    return await newurl.save();
     
@@ -30,4 +34,52 @@ const deletUrl=async(Id)=>{
     return await urlschema.findByIdAndDelete(Id);
 }
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl};
+const countActiveUrlsByUser=async(userId)=>{
+    return await urlschema.countDocuments({
+        userId:userId,
+        expiresAt:{$gt:new Date()}
+    });// needs one filter object, and inside that object we're giving it two conditions:
+}
+
+const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
+    return await urlschema.updateMany(
+        {
+            subscriptionId,
+            plan: "pro",
+        },
+        {
+            $set: {
+                expiresAt,
+            },
+        }
+    );
+};
+
+const upgradeUrlById = async (urlId, setData) => {
+    return await urlschema.findByIdAndUpdate(
+        urlId,
+        {
+            $set: setData,
+        },
+        {
+            returnDocument: "after",
+        }
+    );
+};
+
+// Only unexpired Free URLs of this owner are selectable for promotion.
+// Already-Pro URLs and other users' URLs can never match the filter.
+const upgradeFreeUrlsByUserId = async (userId, setData) => {
+    return await urlschema.updateMany(
+        {
+            userId,
+            plan: "free",
+            expiresAt: { $gt: new Date() },
+        },
+        {
+            $set: setData,
+        }
+    );
+};
+
+module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser,updateProUrlExpiry,upgradeUrlById,upgradeFreeUrlsByUserId};

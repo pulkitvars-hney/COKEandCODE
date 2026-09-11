@@ -1,18 +1,23 @@
 const {findUserByEmail,findByUsername}=require("../DAo/user.dao");
 const ApiError=require("../utils/ApiError");
 const User=require("../models/user.model");
+const {expireUserSubscription}=require("../services/subscription.service");
 const crypto = require("crypto");
+const {z}=require("zod");
+
 const login=async(userdata)=>{
     // userdata is a plain JavaScript object received from req.body
-    // Login validation normalizes the submitted email before it reaches this service.
-    const {email,password}=userdata;
+    const {identifier,password}=userdata;
      if (
-        !email?.trim() ||
+        !identifier?.trim() ||
         !password?.trim()
     ) {
         throw new ApiError(400, "All fields are required");
     }
-    const user = await findUserByEmail(email);
+    const normalizedIdentifier=identifier.trim();
+    const user=z.string().email().safeParse(normalizedIdentifier).success
+        ? await findUserByEmail(normalizedIdentifier.toLowerCase())
+        : await findByUsername(normalizedIdentifier);
     // user is a Mongoose document, so it has schema methods
     if(!user){
         // Use 401 for both cases so the response does not reveal whether an account exists.
@@ -25,6 +30,8 @@ const login=async(userdata)=>{
         throw new ApiError(401, "Invalid credentials");
     }
 
+    await expireUserSubscription(user._id);
+    
     const {accessToken,refreshToken}=await generateAccessandRefreshToken(user._id);
      return {
         user,

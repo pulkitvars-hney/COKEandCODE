@@ -33,6 +33,14 @@ const definition = {
                     password: { type: "string", format: "password", example: "password123" },
                 },
             },
+            LoginRequest: {
+                type: "object",
+                required: ["identifier", "password"],
+                properties: {
+                    identifier: { type: "string", example: "user@example.com", description: "Registered email address or username" },
+                    password: { type: "string", format: "password", example: "password123" },
+                },
+            },
             SignupRequest: {
                 allOf: [
                     { $ref: "#/components/schemas/Credentials" },
@@ -63,7 +71,7 @@ const definition = {
             post: { tags: ["Authentication"], summary: "Create an account", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/SignupRequest" } } } }, responses: { 201: { description: "Account created" }, 400: { description: "Invalid account details" } } },
         },
         "/api/auth/login": {
-            post: { tags: ["Authentication"], summary: "Log in and receive auth cookies", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Credentials" } } } }, responses: { 200: { description: "Login successful" }, 401: { description: "Invalid credentials" } } },
+            post: { tags: ["Authentication"], summary: "Log in with email or username and receive auth cookies", requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/LoginRequest" } } } }, responses: { 200: { description: "Login successful" }, 400: { description: "Invalid login request" }, 401: { description: "Invalid credentials" } } },
         },
         "/api/auth/me": {
             get: { tags: ["Authentication"], summary: "Get the active user", security: [{ bearerAuth: [] }], responses: { 200: { description: "Current user" }, 401: { description: "Authentication required" } } },

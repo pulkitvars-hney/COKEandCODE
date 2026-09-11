@@ -1,1 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --font-doodle: 'Caveat', cursive;
+  --color-brand: #e8611a;
+  --color-brand-hover: #d4550f;
+}
+
+/* ─── LIGHT MODE ─── */
+:root {
+  color-scheme: light;
+  --bg-base: #f4f0e8;
+  --bg-surface: #faf7f2;
+  --bg-muted: #ede8de;
+  --bg-hover: #e8e2d6;
+  --border: #d4cfc4;
+  --border-strong: #b5ad9e;
+  --text-primary: #1a1612;
+  --text-secondary: #5c5549;
+  --text-muted: #908779;
+  --accent: #e8611a;
+  --accent-hover: #d4550f;
+  --accent-muted: #fdf2ea;
+  --success: #2d8a4e;
+  --success-muted: rgba(45, 138, 78, 0.1);
+  --warning: #b8860b;
+  --warning-muted: rgba(184, 134, 11, 0.1);
+  --danger: #c0392b;
+  --danger-muted: rgba(192, 57, 43, 0.1);
+}
+
+/* ─── DARK MODE ─── */
+.dark {
+  color-scheme: dark;
+  --bg-base: #0e0d0b;
+  --bg-surface: #1a1814;
+  --bg-muted: #252219;
+  --bg-hover: #2e2a20;
+  --border: #3a3528;
+  --border-strong: #524b3a;
+  --text-primary: #f0ebe2;
+  --text-secondary: #a89e8e;
+  --text-muted: #6d6455;
+  --accent: #f07a2a;
+  --accent-hover: #fb9a4f;
+  --accent-muted: rgba(240, 122, 42, 0.12);
+  --success: #3dbe65;
+  --success-muted: rgba(61, 190, 101, 0.12);
+  --warning: #e0a820;
+  --warning-muted: rgba(224, 168, 32, 0.12);
+  --danger: #e74c3c;
+  --danger-muted: rgba(231, 76, 60, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(232, 97, 26, 0.25);
+  color: var(--text-primary);
+}
+
+/* ─── Morphic utilities ─── */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root:not(.dark) .glass {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-strong {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root:not(.dark) .glass-strong {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Scroll reveal animation ─── */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal {
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ─── Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none;
+  }
+}
+
+/* ─── Orange glow (landing only) ─── */
+.orange-glow {
+  position: relative;
+}
+
+.orange-glow::before {
+  content: '';
+  position: absolute;
+  inset: -60px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 97, 26, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark .orange-glow::before {
+  background: radial-gradient(circle, rgba(240, 122, 42, 0.1) 0%, transparent 70%);
+}

@@ -10,4 +10,6 @@ router.post("/api/url/create",verifyjwt, validate(createUrlSchema), asyncHandler
 router.get("/api/:shortUrl", asyncHandler(shortUrlController.redirectShortUrl));
 router.get("/api/url/myurls",verifyjwt,asyncHandler(shortUrlController.fetchingmyurls))
 router.delete("/api/url/:id",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.deletingmyurl))
+router.post("/api/url/upgrade-all",verifyjwt,asyncHandler(shortUrlController.upgrademyurls))
+router.post("/api/url/:id/upgrade",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.upgrademyurl))
 module.exports=router;
