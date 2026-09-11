@@ -77,4 +77,20 @@ describe("Analytics API", () => {
 
         expect(response.statusCode).toBe(403);
     });
+
+    test("returns timeline grouped by the specified interval", async () => {
+        const cookie = await createUserCookie();
+        const url = await createTrackedUrl(cookie);
+        await request(app).get("/api/analytics-target");
+
+        for (const interval of ["day", "week", "month", "year"]) {
+            const response = await request(app)
+                .get(`/api/analytics/${url._id}/overview?interval=${interval}`)
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.data.timeline).toEqual(expect.any(Array));
+            expect(response.body.data.timeline.length).toBeGreaterThanOrEqual(1);
+        }
+    });
 });

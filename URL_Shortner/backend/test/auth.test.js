@@ -54,6 +54,17 @@ describe("Authentication API", () => {
             const response = await signupUser({ password: "weakpassword" });
             expect(response.statusCode).toBe(400);
         });
+
+        test.each([
+            ["too short", "Pa@1"],
+            ["missing uppercase", "password@123"],
+            ["missing lowercase", "PASSWORD@123"],
+            ["missing digit", "Password@abc"],
+            ["missing special character", "Password123"],
+        ])("password fails rule: %s", async (_rule, password) => {
+            const response = await signupUser({ password, email: "rule-test@example.com", username: "rule_test_user" });
+            expect(response.statusCode).toBe(400);
+        });
         //?this test is for duplicate feilds
         test("duplicate username returns 409", async () => {
             await signupUser();
@@ -65,6 +76,16 @@ describe("Authentication API", () => {
             await signupUser();
             const response = await signupUser({ username: "another_user" });
             expect(response.statusCode).toBe(409);
+        });
+
+        test("rejects a reserved username (admin)", async () => {
+            const response = await signupUser({ username: "admin" });
+            expect(response.statusCode).toBe(400);
+        });
+
+        test("rejects a reserved username (api)", async () => {
+            const response = await signupUser({ username: "api" });
+            expect(response.statusCode).toBe(400);
         });
         //?this test is for password feild should not return
         test("password is not returned", async () => {
@@ -177,7 +198,44 @@ describe("Authentication API", () => {
             expect(response.statusCode).toBe(200);
             expect(response.body.data.user.email).toBe(validUser.email);
         });
-//! here we are testing that this refresh token endpoint generates new authentication cookies when provided with a valid refresh token. 
+
+        test("protected route rejects an expired access token", async () => {
+            await signupUser();
+            const loginResponse = await request(app)
+                .post("/api/auth/login")
+                .send({ email: validUser.email, password: validUser.password });
+            const realToken = getCookie(loginResponse, "accessToken");
+            const decoded = jwt.decode(realToken);
+
+            const expiredToken = jwt.sign(
+                { _id: decoded._id, email: decoded.email, username: decoded.username },
+                process.env.ACCESS_TOKEN_SECRET,
+                { expiresIn: "-1s" }
+            );
+
+            const response = await request(app)
+                .get("/api/auth/me")
+                .set("Authorization", `Bearer ${expiredToken}`);
+
+            expect(response.statusCode).toBe(401);
+        });
+
+        test("protected route rejects a valid token for a deleted user", async () => {
+            await signupUser();
+            const loginResponse = await request(app)
+                .post("/api/auth/login")
+                .send({ email: validUser.email, password: validUser.password });
+            const accessToken = getCookie(loginResponse, "accessToken");
+
+            await User.deleteMany({});
+
+            const response = await request(app)
+                .get("/api/auth/me")
+                .set("Authorization", `Bearer ${accessToken}`);
+
+            expect(response.statusCode).toBe(401);
+        });
+
         test("refresh token generates new authentication cookies", async () => {
             await signupUser();
             const loginResponse = await request(app)

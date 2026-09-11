@@ -2,6 +2,7 @@ const request = require("supertest");
 const app = require("../src/app");
 const Url = require("../src/models/url.models");
 const Analytics = require("../src/models/analytic.model");
+const Subscription = require("../src/models/subscription.model");
 
 const user = {
     username: "url_test_user",
@@ -105,6 +106,23 @@ describe("URL shortening API", () => {
         expect(await Url.countDocuments()).toBe(7);
     });
 
+    test("Pro user is not subject to the Free 7-URL limit", async () => {
+        const cookie = await createAuthCookie();
+        await request(app).get("/api/subscription/current").set("Cookie", cookie);
+        await request(app).post("/api/subscription/upgrade").set("Cookie", cookie).send({ plan: "pro" });
+
+        for (let index = 1; index <= 8; index += 1) {
+            const response = await request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({ originalUrl: `https://example.com/pro-${index}` });
+
+            expect(response.statusCode).toBe(201);
+        }
+
+        expect(await Url.countDocuments()).toBe(8);
+    });
+
     test("does not count expired URLs toward a user's active URL limit", async () => {
         const cookie = await createAuthCookie();
 
@@ -128,6 +146,56 @@ describe("URL shortening API", () => {
 
         expect(response.statusCode).toBe(201);
         expect(await Url.countDocuments()).toBe(8);
+    });
+
+    test("deleting an active URL frees a slot in the Free cap", async () => {
+        const cookie = await createAuthCookie();
+
+        for (let index = 1; index <= 7; index += 1) {
+            await request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({ originalUrl: `https://example.com/cap-${index}`, alias: `cap-${index}` });
+        }
+        expect(await Url.countDocuments()).toBe(7);
+
+        const toDelete = await Url.findOne({ shortUrl: "cap-1" });
+        await request(app).delete(`/api/url/${toDelete._id}`).set("Cookie", cookie);
+        expect(await Url.countDocuments()).toBe(6);
+
+        const response = await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/cap-new", alias: "cap-new" });
+
+        expect(response.statusCode).toBe(201);
+        expect(await Url.countDocuments()).toBe(7);
+    });
+
+    test("Pro URL creation stores correct metadata in the database", async () => {
+        const cookie = await createAuthCookie();
+        await request(app).get("/api/subscription/current").set("Cookie", cookie);
+        const upgradeResponse = await request(app)
+            .post("/api/subscription/upgrade")
+            .set("Cookie", cookie)
+            .send({ plan: "pro" });
+        const proSub = upgradeResponse.body.data;
+
+        const createResponse = await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/pro-created" });
+        expect(createResponse.statusCode).toBe(201);
+
+        const storedUrl = await Url.findOne({ originalUrl: "https://example.com/pro-created" });
+        expect(storedUrl.plan).toBe("pro");
+        expect(String(storedUrl.subscriptionId)).toBe(String(proSub._id));
+
+        const expectedExpiry = new Date(proSub.currentPeriodEnd);
+        expectedExpiry.setDate(expectedExpiry.getDate() + 3);
+        expect(storedUrl.expiresAt.getTime()).toBe(expectedExpiry.getTime());
+
+        expect(storedUrl.originalUrl).toBe("https://example.com/pro-created");
     });
 
     test.each([
@@ -179,6 +247,23 @@ describe("URL shortening API", () => {
         expect(second.statusCode).toBe(201);
         expect(second.body.shortUrl).toBe(first.body.shortUrl);
         expect(await Url.countDocuments()).toBe(1);
+    });
+
+    test("does not reuse a URL across different users for the same destination", async () => {
+        const cookieA = await createAuthCookie();
+        const body = { originalUrl: "https://example.com/shared-dest" };
+        const first = await request(app).post("/api/url/create").set("Cookie", cookieA).send(body);
+        expect(first.statusCode).toBe(201);
+
+        const cookieB = await createAuthCookie({
+            username: "reuse_other_user",
+            email: "reuse-other@example.com",
+            password: "Password@123",
+        });
+        const second = await request(app).post("/api/url/create").set("Cookie", cookieB).send(body);
+        expect(second.statusCode).toBe(201);
+        expect(second.body.shortUrl).not.toBe(first.body.shortUrl);
+        expect(await Url.countDocuments()).toBe(2);
     });
 
     test("lists the authenticated user's URLs", async () => {
