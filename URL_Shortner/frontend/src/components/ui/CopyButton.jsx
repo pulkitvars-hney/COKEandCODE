@@ -13,7 +13,7 @@ export default function CopyButton({ value, className = '', label = 'Copy' }) {
     <button
       type="button"
       onClick={copy}
-      className={`rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)] transition hover:border-brand/50 hover:text-brand ${className}`}
+      className={`rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] ${className}`}
     >
       {copied ? 'Copied!' : label}
     </button>

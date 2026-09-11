@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
+import Button from '../ui/Button'
+import Card from '../ui/Card'
+import Skeleton from '../ui/Skeleton'
 
 const intervals = [
   { value: 'day', label: 'Daily' },
@@ -29,32 +32,28 @@ export default function AnalyticsPanel({ link, onClose }) {
   const maxTimeline = Math.max(...timeline.map((point) => point.clicks || 0), 1)
 
   return (
-    <section className="glass-panel rounded-[28px] p-5 sm:p-7">
+    <section>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Analytics</p>
-          <h2 className="mt-1 truncate text-2xl font-bold tracking-tight">{link.shortUrl}</h2>
-          <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{link.originalUrl}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">Analytics</p>
+          <h2 className="mt-1 truncate text-lg font-bold text-[var(--text-primary)]">{link.shortUrl}</h2>
+          <p className="mt-0.5 truncate text-sm text-[var(--text-muted)]">{link.originalUrl}</p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border-2 border-[var(--text-primary)] px-4 py-2 text-sm font-bold text-[var(--text-primary)] bg-[var(--bg-elevated)] hover:bg-[var(--bg-muted)] shadow-neo-sm hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-neo-md active:translate-x-0 active:translate-y-0 active:shadow-neo-sm transition-all"
-        >
-          Close
-        </button>
+        <Button variant="secondary" size="sm" onClick={onClose}>
+          Back to links
+        </Button>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-5 flex rounded-md border border-[var(--border)] bg-[var(--bg-muted)] p-0.5">
         {intervals.map((item) => (
           <button
             key={item.value}
             type="button"
             onClick={() => setInterval(item.value)}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+            className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               interval === item.value
-                ? 'bg-brand text-black'
-                : 'border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
             }`}
           >
             {item.label}
@@ -75,16 +74,16 @@ export default function AnalyticsPanel({ link, onClose }) {
             <StatCard label="Timeline points" value={timeline.length} />
           </div>
 
-          <div className="mt-6 rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-            <p className="text-sm font-bold">Click timeline</p>
+          <Card className="mt-6 p-5">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Click timeline</p>
             {timeline.length === 0 ? (
               <p className="mt-4 text-sm text-[var(--text-muted)]">No clicks recorded for this interval yet.</p>
             ) : (
-              <div className="mt-5 flex h-40 items-end gap-2">
+              <div className="mt-4 flex h-40 items-end gap-1.5">
                 {timeline.map((point) => (
-                  <div key={point._id} className="flex flex-1 flex-col items-center gap-2">
+                  <div key={point._id} className="flex flex-1 flex-col items-center gap-1.5">
                     <div
-                      className="w-full rounded-t-xl bg-brand/80 transition-all"
+                      className="w-full rounded-t bg-[var(--accent)] transition-all"
                       style={{ height: `${Math.max(8, ((point.clicks || 0) / maxTimeline) * 100)}%` }}
                       title={`${point.clicks || 0} clicks`}
                     />
@@ -95,7 +94,7 @@ export default function AnalyticsPanel({ link, onClose }) {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Breakdown title="Countries" items={overview.countryStats} />
@@ -106,47 +105,61 @@ export default function AnalyticsPanel({ link, onClose }) {
         </>
       )}
 
-      <div className="mt-6 rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-        <p className="text-sm font-bold">Recent clicks</p>
+      <Card className="mt-6 p-5">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">Recent clicks</p>
         {recentQuery.isLoading ? (
-          <p className="mt-4 text-sm text-[var(--text-muted)]">Loading recent activity…</p>
+          <div className="mt-4 space-y-3">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
         ) : recentQuery.error ? (
-          <p className="mt-4 text-sm text-red-400">{recentQuery.error.message}</p>
+          <p className="mt-4 text-sm text-[var(--danger)]" role="alert">{recentQuery.error.message}</p>
         ) : recentQuery.data?.length === 0 ? (
           <p className="mt-4 text-sm text-[var(--text-muted)]">No recent clicks yet.</p>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {recentQuery.data.map((click, index) => (
-              <li
-                key={`${click.timestamp}-${index}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm font-semibold">
-                    {click.browser} · {click.os} · {click.device}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {[click.city, click.country].filter(Boolean).join(', ') || 'Unknown location'}
-                    {click.referrer ? ` · ${click.referrer}` : ''}
-                  </p>
-                </div>
-                <time className="text-xs text-[var(--text-muted)]">
-                  {new Date(click.timestamp).toLocaleString()}
-                </time>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-left text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="pb-2 pr-4">Device</th>
+                  <th className="pb-2 pr-4">Location</th>
+                  <th className="hidden pb-2 pr-4 sm:table-cell">Referrer</th>
+                  <th className="pb-2 text-right">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentQuery.data.map((click, index) => (
+                  <tr key={`${click.timestamp}-${index}`} className="border-b border-[var(--border)] last:border-0">
+                    <td className="py-2.5 pr-4">
+                      <span className="font-medium text-[var(--text-primary)]">{click.browser}</span>
+                      <span className="text-[var(--text-muted)]"> · {click.os} · {click.device}</span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-[var(--text-secondary)]">
+                      {[click.city, click.country].filter(Boolean).join(', ') || 'Unknown'}
+                    </td>
+                    <td className="hidden max-w-[160px] truncate py-2.5 pr-4 font-mono text-xs text-[var(--text-muted)] sm:table-cell">
+                      {click.referrer || '—'}
+                    </td>
+                    <td className="whitespace-nowrap py-2.5 text-right text-xs text-[var(--text-muted)]">
+                      {new Date(click.timestamp).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Card>
     </section>
   )
 }
 
 function StatCard({ label, value }) {
   return (
-    <div className="rounded-3xl border-2 border-[var(--text-primary)] bg-[var(--bg-elevated)] p-4 shadow-neo-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{label}</p>
-      <p className="mt-2 text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">{value ?? 0}</p>
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4">
+      <p className="text-xs font-medium text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1.5 text-2xl font-bold text-[var(--text-primary)]">{value ?? 0}</p>
     </div>
   )
 }
@@ -155,21 +168,21 @@ function Breakdown({ title, items = [] }) {
   const total = items.reduce((sum, item) => sum + (item.count || 0), 0) || 1
 
   return (
-    <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
-      <p className="text-sm font-bold">{title}</p>
+    <Card className="p-5">
+      <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
       {items.length === 0 ? (
         <p className="mt-3 text-sm text-[var(--text-muted)]">No data yet.</p>
       ) : (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-3 space-y-2.5">
           {items.slice(0, 5).map((item) => (
             <li key={item._id || item.label}>
               <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="font-medium">{item._id || 'Unknown'}</span>
+                <span className="font-medium text-[var(--text-primary)]">{item._id || 'Unknown'}</span>
                 <span className="text-[var(--text-muted)]">{item.count}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-muted)]">
+              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-muted)]">
                 <div
-                  className="h-full rounded-full bg-brand"
+                  className="h-full rounded-full bg-[var(--accent)]"
                   style={{ width: `${(item.count / total) * 100}%` }}
                 />
               </div>
@@ -177,16 +190,36 @@ function Breakdown({ title, items = [] }) {
           ))}
         </ul>
       )}
-    </div>
+    </Card>
   )
 }
 
 function LoadingState() {
-  return <p className="text-sm text-[var(--text-muted)]">Loading analytics…</p>
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Skeleton className="h-[72px] rounded-lg" />
+        <Skeleton className="h-[72px] rounded-lg" />
+        <Skeleton className="h-[72px] rounded-lg" />
+        <Skeleton className="h-[72px] rounded-lg" />
+      </div>
+      <Skeleton className="h-[220px] rounded-lg" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Skeleton className="h-[160px] rounded-lg" />
+        <Skeleton className="h-[160px] rounded-lg" />
+        <Skeleton className="h-[160px] rounded-lg" />
+        <Skeleton className="h-[160px] rounded-lg" />
+      </div>
+    </div>
+  )
 }
 
 function ErrorState({ message }) {
-  return <p className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">{message}</p>
+  return (
+    <p className="rounded-md border border-[var(--danger)] bg-[var(--danger-muted)] px-4 py-3 text-sm text-[var(--danger)]" role="alert">
+      {message}
+    </p>
+  )
 }
 
 function formatTimelineLabel(value, interval) {

@@ -1,47 +1,100 @@
+import { Link } from 'react-router-dom'
+import Card from '../ui/Card'
+import Button from '../ui/Button'
+import Badge from '../ui/Badge'
+
 const plans = [
-  { name: 'Free', eyebrow: 'For fresh ideas', price: '$0', detail: 'Start sharing in seconds', features: ['7 active links', 'Custom aliases', 'Click analytics'], action: 'Create free account' },
-  { name: 'Pro', eyebrow: 'For serious creators', price: 'Pro', detail: 'The upgrade available today', features: ['Priority workspace', 'Subscription history', 'Upgrade through the app'], action: 'Explore Pro', featured: true },
-  { name: 'Studio', eyebrow: 'For growing teams', price: 'Soon', detail: 'Designed for your next chapter', features: ['Team-ready workflow', 'Expanded controls', 'Future release access'], action: 'Coming soon', unavailable: true },
+  {
+    name: 'Free',
+    eyebrow: 'For fresh ideas',
+    price: '$0',
+    period: '/ month',
+    detail: 'Start sharing in seconds',
+    features: ['7 active links', 'Custom aliases', 'Click analytics'],
+    cta: { label: 'Create free account', to: '/signup' },
+  },
+  {
+    name: 'Pro',
+    eyebrow: 'For serious creators',
+    price: 'Pro',
+    period: '',
+    detail: 'The upgrade available today',
+    features: ['Priority workspace', 'Subscription history', 'Upgrade through the app'],
+    cta: { label: 'Explore Pro', to: '/signup' },
+    featured: true,
+  },
+  {
+    name: 'Studio',
+    eyebrow: 'For growing teams',
+    price: 'Soon',
+    period: '',
+    detail: 'Designed for your next chapter',
+    features: ['Team-ready workflow', 'Expanded controls', 'Future release access'],
+    unavailable: true,
+  },
 ]
 
 export default function PricingSection() {
   return (
-    <section id="pricing" className="landing-pricing mx-auto max-w-6xl px-5 py-20 sm:px-8" aria-labelledby="pricing-title">
-      <div className="landing-section-heading">
-        <p className="landing-eyebrow">Simple plans, real momentum</p>
-        <h2 id="pricing-title" className="text-3xl font-extrabold tracking-tight mt-2 text-gradient">Pick the pace that fits your links.</h2>
-        <p className="mt-4">Everything begins with a free account. Upgrade to Pro from your workspace when you are ready.</p>
+    <section id="pricing" className="mx-auto max-w-5xl px-5 py-16 sm:px-8" aria-labelledby="pricing-title">
+      <div className="mb-12 max-w-2xl">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Simple plans</p>
+        <h2 id="pricing-title" className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Pick the pace that fits your links.</h2>
+        <p className="mt-3 text-[var(--text-secondary)]">Everything begins with a free account. Upgrade to Pro from your workspace when you are ready.</p>
       </div>
 
-      {/* Visual Toggle for future Annual Billing */}
-      <div className="flex justify-center items-center gap-3 mb-10">
-        <span className="text-sm font-bold">Monthly Billing</span>
-        <button 
-          type="button" 
-          disabled 
-          className="relative inline-flex h-6 w-11 shrink-0 cursor-not-allowed rounded-full border-2 border-[var(--text-primary)] bg-[var(--bg-muted)] transition-colors duration-200 focus:outline-none opacity-60"
+      <div className="mb-10 flex items-center gap-3">
+        <span className="text-sm font-medium text-[var(--text-primary)]">Monthly Billing</span>
+        <button
+          type="button"
+          disabled
+          className="relative inline-flex h-5 w-9 shrink-0 cursor-not-allowed rounded-full border border-[var(--border)] bg-[var(--bg-muted)] opacity-60 transition-colors"
           aria-label="Annual billing toggle (disabled)"
         >
-          <span className="translate-x-0 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[var(--text-primary)] shadow transition duration-200 ease-in-out" />
+          <span className="pointer-events-none inline-block h-4 w-4 translate-x-0 transform rounded-full bg-[var(--text-muted)] transition duration-200 ease-in-out mt-0.5 ml-0.5" />
         </button>
-        <span className="text-sm text-[var(--text-muted)] font-semibold flex items-center gap-1.5">
-          Annual Billing 
-          <span className="text-[10px] bg-brand text-black font-extrabold uppercase px-1.5 py-0.5 rounded border border-black font-mono">Soon</span>
+        <span className="flex items-center gap-1.5 text-sm text-[var(--text-muted)]">
+          Annual Billing
+          <Badge variant="pro">Soon</Badge>
         </span>
       </div>
 
-      <div className="pricing-grid">
+      <div className="grid gap-6 md:grid-cols-3">
         {plans.map((plan) => (
-          <article key={plan.name} className={`pricing-card ${plan.featured ? 'pricing-card--featured' : ''}`}>
-            {plan.featured && <span className="pricing-card__popular">Popular</span>}
-            <div className="pricing-card__icon" aria-hidden="true">{plan.name === 'Free' ? '↗' : plan.name === 'Pro' ? '✦' : '◌'}</div>
-            <p className="pricing-card__eyebrow">{plan.eyebrow}</p>
-            <h3>{plan.name}</h3>
-            <p className="pricing-card__price">{plan.price}<span>{plan.price === '$0' ? '/ month' : ''}</span></p>
-            <p className="pricing-card__detail">{plan.detail}</p>
-            <ul>{plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}</ul>
-            {plan.unavailable ? <span className="pricing-card__disabled">{plan.action}</span> : <a href="#join" className="pricing-card__action">{plan.action}</a>}
-          </article>
+          <Card
+            key={plan.name}
+            className={`relative flex flex-col p-6 ${plan.featured ? 'border-[var(--accent)]' : ''}`}
+          >
+            {plan.featured && (
+              <Badge variant="pro" className="absolute right-4 top-4">Popular</Badge>
+            )}
+            <p className="mb-1 text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">{plan.eyebrow}</p>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">{plan.name}</h3>
+            <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
+              {plan.price}
+              {plan.period && <span className="text-sm font-normal text-[var(--text-muted)]">{plan.period}</span>}
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">{plan.detail}</p>
+            <ul className="mt-5 flex-1 space-y-2.5">
+              {plan.features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2 text-sm text-[var(--text-secondary)]">
+                  <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6">
+              {plan.unavailable ? (
+                <Button variant="secondary" fullWidth disabled>Coming soon</Button>
+              ) : (
+                <Link to={plan.cta.to}>
+                  <Button variant={plan.featured ? 'primary' : 'secondary'} fullWidth>{plan.cta.label}</Button>
+                </Link>
+              )}
+            </div>
+          </Card>
         ))}
       </div>
     </section>

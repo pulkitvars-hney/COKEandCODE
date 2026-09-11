@@ -1,130 +1,119 @@
 import { isActiveUrl } from '../../lib/api'
+import Table, { Thead, Tbody, Tr, Th, Td } from '../ui/Table'
+import Badge from '../ui/Badge'
 import CopyButton from '../ui/CopyButton'
+import EmptyState from '../ui/EmptyState'
 
-export default function LinkList({ urls, onDelete, onSelectAnalytics, deletingId, selectedId }) {
+export default function LinkList({ urls, onDelete, onSelectAnalytics, deletingId }) {
   if (!urls?.length) {
     return (
-      <section className="glass-panel rounded-[28px] p-8 text-center">
-        <p className="text-lg font-bold">No links yet</p>
-        <p className="mt-2 text-sm text-[var(--text-muted)]">
-          Your shortened links will show up here with expiry status and click counts.
-        </p>
-      </section>
+      <EmptyState
+        title="No links yet"
+        description="Your shortened links will show up here with expiry status and click counts."
+      />
     )
   }
 
   return (
-    <section className="glass-panel rounded-[28px] p-5 sm:p-7">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-muted)]">Library</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight">Your links</h2>
-        </div>
-        <span className="rounded-full bg-[var(--bg-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-secondary)]">
-          {urls.length} total
-        </span>
+    <section>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-[family-name:var(--font-doodle)] text-lg font-bold text-[var(--text-primary)]">Your links</h2>
+        <span className="text-xs text-[var(--text-muted)]">{urls.length} total</span>
       </div>
 
-      <ul className="space-y-3">
-        {urls.map((item) => (
-          <LinkRow
-            key={item._id}
-            item={item}
-            selected={selectedId === item._id}
-            deleting={deletingId === item._id}
-            onDelete={() => onDelete(item._id)}
-            onAnalytics={() => onSelectAnalytics(item)}
-          />
-        ))}
-      </ul>
+      <Table>
+        <Thead>
+          <Tr>
+            <Th>Short URL</Th>
+            <Th className="hidden sm:table-cell">Destination</Th>
+            <Th className="text-right">Clicks</Th>
+            <Th className="hidden md:table-cell">Plan</Th>
+            <Th>Status</Th>
+            <Th className="hidden lg:table-cell">Expires</Th>
+            <Th className="text-right">Actions</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {urls.map((item) => (
+            <LinkRow
+              key={item._id}
+              item={item}
+              deleting={deletingId === item._id}
+              onDelete={() => onDelete(item._id)}
+              onAnalytics={() => onSelectAnalytics(item)}
+            />
+          ))}
+        </Tbody>
+      </Table>
     </section>
   )
 }
 
-function LinkRow({ item, selected, deleting, onDelete, onAnalytics }) {
+function LinkRow({ item, deleting, onDelete, onAnalytics }) {
   const active = isActiveUrl(item)
+  const expiry = item.expiresAt ? new Date(item.expiresAt) : null
 
   return (
-    <li
-      className={`rounded-3xl border p-4 transition sm:p-5 ${
-        selected
-          ? 'border-brand/40 bg-brand/5'
-          : 'border-[var(--border)] bg-[var(--bg-elevated)] hover:border-brand/25'
-      }`}
-    >
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge active={active} expiresAt={item.expiresAt} />
-            {item.shortCode && (
-              <span className="rounded-full bg-[var(--bg-muted)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-                /{item.shortCode}
-              </span>
-            )}
-          </div>
-
-          <a
-            href={item.shortUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 block truncate text-base font-bold hover:text-brand"
-          >
-            {item.shortUrl}
-          </a>
-          <p className="mt-1 truncate text-sm text-[var(--text-muted)]" title={item.originalUrl}>
-            {item.originalUrl}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <span className="rounded-full bg-[var(--bg-muted)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]">
-            {item.clicks} clicks
-          </span>
+    <Tr>
+      <Td>
+        <a
+          href={item.shortUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="font-mono text-sm font-medium text-[var(--accent)] hover:underline"
+        >
+          {item.shortCode || item.shortUrl}
+        </a>
+      </Td>
+      <Td className="hidden max-w-[200px] sm:table-cell">
+        <span className="block truncate text-sm text-[var(--text-secondary)]" title={item.originalUrl}>
+          {item.originalUrl}
+        </span>
+      </Td>
+      <Td className="text-right font-mono text-sm text-[var(--text-primary)]">
+        {item.clicks}
+      </Td>
+      <Td className="hidden md:table-cell">
+        <Badge variant={item.plan === 'pro' ? 'pro' : 'free'}>{item.plan}</Badge>
+      </Td>
+      <Td>
+        <StatusBadge active={active} expiresAt={item.expiresAt} />
+      </Td>
+      <Td className="hidden text-sm text-[var(--text-muted)] lg:table-cell">
+        {expiry
+          ? active
+            ? expiry.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            : 'Expired'
+          : '—'}
+      </Td>
+      <Td>
+        <div className="flex items-center justify-end gap-1.5">
           <CopyButton value={item.shortUrl} label="Copy" />
           <button
             type="button"
             onClick={onAnalytics}
-            className="rounded-full border border-brand/30 bg-brand/10 px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand/20"
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-[var(--accent)] transition-colors hover:bg-[var(--accent-muted)]"
           >
-            Analytics
+            Details
           </button>
           <button
             type="button"
             onClick={onDelete}
             disabled={deleting}
-            className="rounded-full border border-red-500/20 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:opacity-60"
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-muted)] disabled:opacity-50"
           >
-            {deleting ? 'Deleting…' : 'Delete'}
+            {deleting ? '…' : 'Delete'}
           </button>
         </div>
-      </div>
-    </li>
+      </Td>
+    </Tr>
   )
 }
 
 function StatusBadge({ active, expiresAt }) {
   if (!expiresAt) {
-    return (
-      <span className="rounded-full bg-[var(--bg-muted)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
-        Unknown
-      </span>
-    )
+    return <Badge variant="free">Unknown</Badge>
   }
 
-  const expiry = new Date(expiresAt)
-  const label = active
-    ? `Expires ${expiry.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-    : 'Expired'
-
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-        active
-          ? 'bg-brand/15 text-brand'
-          : 'bg-red-500/10 text-red-400'
-      }`}
-    >
-      {label}
-    </span>
-  )
+  return <Badge variant={active ? 'active' : 'expired'}>{active ? 'Active' : 'Expired'}</Badge>
 }

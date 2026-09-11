@@ -8,7 +8,10 @@ export const api = async (path, options = {}) => {
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new Error(data.message || 'Something went wrong. Please try again.')
+    const fieldErrors = data.details?.fieldErrors || {}
+    const fieldMessages = Object.values(fieldErrors).flat()
+    const detailMessage = fieldMessages.length ? fieldMessages.join(' ') : data.message
+    throw new Error(detailMessage || 'Something went wrong. Please try again.')
   }
   return data
 }
