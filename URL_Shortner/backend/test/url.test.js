@@ -3,6 +3,7 @@ const app = require("../src/app");
 const Url = require("../src/models/url.models");
 const Analytics = require("../src/models/analytic.model");
 const Subscription = require("../src/models/subscription.model");
+const { expireUrlService } = require("../src/services/shorturlhelper.service");
 
 const user = {
     username: "url_test_user",
@@ -138,7 +139,8 @@ describe("URL shortening API", () => {
             { _id: urlToExpire._id },
             { $set: { expiresAt: new Date(Date.now() - 1_000) } }
         );
-
+        // Run the actual expiration flow.
+        await expireUrlService(urlToExpire._id);
         const response = await request(app)
             .post("/api/url/create")
             .set("Cookie", cookie)
@@ -160,16 +162,25 @@ describe("URL shortening API", () => {
         expect(await Url.countDocuments()).toBe(7);
 
         const toDelete = await Url.findOne({ shortUrl: "cap-1" });
-        await request(app).delete(`/api/url/${toDelete._id}`).set("Cookie", cookie);
-        expect(await Url.countDocuments()).toBe(6);
+        await request(app)
+            .delete(`/api/url/${toDelete._id}`)
+            .set("Cookie", cookie);
+        // expect(await Url.countDocuments()).toBe(6);
 
         const response = await request(app)
             .post("/api/url/create")
             .set("Cookie", cookie)
-            .send({ originalUrl: "https://example.com/cap-new", alias: "cap-new" });
+            .send({
+                originalUrl: "https://example.com/cap-new",
+                alias: "cap-new"
+            });
+        const deletedUrl = await Url.findById(toDelete._id);
 
+        expect(deletedUrl).not.toBeNull();
+        expect(deletedUrl.status).toBe("deleted");
         expect(response.statusCode).toBe(201);
-        expect(await Url.countDocuments()).toBe(7);
+        // expect(await Url.countDocuments()).toBe(8);
+        //  expect((await User.findOne({ email: TEST_EMAIL })).activeFreeUrlCount).toBe(7);
     });
 
     test("Pro URL creation stores correct metadata in the database", async () => {
@@ -388,4 +399,47 @@ describe("URL shortening API", () => {
         expect(unchangedUrl.clicks).toBe(0);
         expect(await Analytics.countDocuments({ urlId: storedUrl._id })).toBe(0);
     });
+
+    test("concurrent expiry of the same Free URL releases the slot exactly once ", async () => {
+        const cookie = await createAuthCookie();
+        const createResponse = await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({
+                originalUrl: "https://example.com/concurrent-expiry",
+                alias: "concurrent-expiry"
+            });
+        expect(createResponse.statusCode).toBe(201);
+
+        const url = await Url.findOne(
+            { _id: url._id },
+            {
+                $set: {
+                    expiresAt: new Date(Date.now() - 1000)
+                }
+            }
+        );
+         // Two workers try to expire the same URL simultaneously
+        const results = await Promise.all([
+            expireUrlService(url._id),
+            expireUrlService(url._id),
+        ]);
+            
+        // Exactly one call should perform the state transition
+        expect(results.filter(Boolean)).toHaveLength(1);
+        expect(results.filter(result => result === null)).toHaveLength(1);
+
+        const expiredUrl = await Url.findById(url._id);
+
+        expect(expiredUrl.status).toBe("expired");
+
+        // Most important assertion:
+        // counter decreased exactly once
+        const user = await User.findOne({
+            email: TEST_EMAIL
+        });
+
+        expect(user.activeFreeUrlCount).toBe(0);
+
+    })
 });

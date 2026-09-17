@@ -96,7 +96,14 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
             }
 
             try {
-                await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid, expiresAt, subscription.plan, subscriptionId, session);
+                await saveurl.saveshortUrl(
+                    normalizedAlias, 
+                    normalizedUrl, 
+                    userid, 
+                    expiresAt, 
+                    subscription.plan, 
+                    subscriptionId
+                );
             } catch (error) {
                 // Protect against two requests claiming the same alias concurrently.
                 if (error?.code === 11000) {
