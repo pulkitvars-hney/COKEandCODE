@@ -293,9 +293,11 @@ describe("URL shortening API", () => {
         const response = await request(app)
             .delete(`/api/url/${storedUrl._id}`)
             .set("Cookie", cookie);
-
         expect(response.statusCode).toBe(200);
-        expect(await Url.exists({ _id: storedUrl._id })).toBeNull();
+        const deletedUrl = await Url.findById(storedUrl._id);
+
+        expect(deletedUrl).not.toBeNull();
+        expect(deletedUrl.status).toBe("deleted");
     });
 
     test("redirects a custom alias to its original URL", async () => {
