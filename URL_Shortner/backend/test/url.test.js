@@ -4,7 +4,8 @@ const Url = require("../src/models/url.models");
 const Analytics = require("../src/models/analytic.model");
 const Subscription = require("../src/models/subscription.model");
 const { expireUrlService } = require("../src/services/shorturlhelper.service");
-
+const User = require("../src/models/user.model");
+const FREE_URL_LIMIT = parseInt(process.env.FREE_URL_LIMIT);
 const user = {
     username: "url_test_user",
     email: "url-test@example.com",
@@ -411,7 +412,11 @@ describe("URL shortening API", () => {
             });
         expect(createResponse.statusCode).toBe(201);
 
-        const url = await Url.findOne(
+        const url = await Url.findOne({
+            shortUrl: "concurrent-expiry"
+        });
+
+        await Url.updateOne(
             { _id: url._id },
             {
                 $set: {
@@ -419,12 +424,12 @@ describe("URL shortening API", () => {
                 }
             }
         );
-         // Two workers try to expire the same URL simultaneously
+        // Two workers try to expire the same URL simultaneously
         const results = await Promise.all([
             expireUrlService(url._id),
             expireUrlService(url._id),
         ]);
-            
+
         // Exactly one call should perform the state transition
         expect(results.filter(Boolean)).toHaveLength(1);
         expect(results.filter(result => result === null)).toHaveLength(1);
@@ -435,11 +440,68 @@ describe("URL shortening API", () => {
 
         // Most important assertion:
         // counter decreased exactly once
-        const user = await User.findOne({
-            email: TEST_EMAIL
+        const usser = await User.findOne({
+            email: user.email
         });
 
-        expect(user.activeFreeUrlCount).toBe(0);
+        expect(usser.activeFreeUrlCount).toBe(0);
 
+    })
+
+    test("checking that 2 simultaneous request do not increse the counter more then the limit", async () => {
+        const cookie = await createAuthCookie();
+
+        for (let i = 1; i < FREE_URL_LIMIT; i += 1) {
+            await request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({
+                    originalUrl: `https://example.com/cap-${i}`,
+                    alias: `cap-${i}`,
+                })
+        }
+        expect(await Url.countDocuments()).toBe(FREE_URL_LIMIT - 1);
+
+        // two request will compete for the final slot 
+
+        const result = await Promise.all([
+            request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({
+                    originalUrl: "https://example.com/concurrent-1",
+                    alias: "concurrent-1",
+                }),
+
+            request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({
+                    originalUrl: "https://example.com/concurrent-2",
+                    alias: "concurrent-2",
+                })
+        ])
+        // console.log("TEST REACHED");
+        // console.log(result.length);
+        // console.log(result[0].statusCode);
+        // console.log(result[1].statusCode);
+
+        expect(true).toBe(true);
+         console.log("RESULTS:", result.map(r => r.statusCode));
+        // exactly one gets the final slot 
+                 const successful=result.filter(
+                    (response)=> response.statusCode===201
+                 )
+                 const rejected=result.filter(
+                    (response)=>response.statusCode===403
+                 );
+                 console.log(result.map((response) => ({
+            status: response.statusCode,
+            body: response.body
+        })));
+         expect(successful).toHaveLength(1);
+         expect(rejected).toHaveLength(1);
+
+        expect(await Url.countDocuments()).toBe(FREE_URL_LIMIT);
     })
 });
