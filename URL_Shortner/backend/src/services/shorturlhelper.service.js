@@ -4,6 +4,18 @@ const saveurl = require("../DAo/url.dao.js");
 const ApiError = require("../utils/ApiError.js");
 const { RESERVED_ALIASES } = require("../constant/reservedAliases");
 const { createDefaultSubscription, currentSubscription } = require("../services/subscription.service.js")
+
+const mongoose = require("mongoose");
+const userDao = require("../DAo/user.dao.js");
+
+class ReuseExistingUrlError extends Error {
+    constructor(shortUrl) {
+        super("REUSE_EXISTING_URL");
+        this.shortUrl = shortUrl;
+    }
+}
+
+
 const validateUrl = (value) => {
     if (typeof value !== "string" || !value.trim()) {
         throw new ApiError(400, "originalUrl is required");
@@ -28,12 +40,12 @@ const buildShortUrl = (shortCode) => {
 };
 
 const createUniqueShortCode = async (url, userId, expiresAt, plan,
-    subscriptionId) => {
+    subscriptionId, session) => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
         const shortCode = nanoid.genratenanoid(7);
         try {
             await saveurl.saveshortUrl(shortCode, url, userId, expiresAt, plan,
-                subscriptionId);
+                subscriptionId, session);
             return shortCode;
         } catch (error) {
             if (error?.code !== 11000) throw error;
@@ -50,60 +62,197 @@ const createUniqueShortCode = async (url, userId, expiresAt, plan,
 // }
 
 const CreateShortUrlwithuser = async (url, userid, alias) => {
+    //validation of url and alias
     const normalizedUrl = validateUrl(url);
     const subscription = await currentSubscription(userid);
-    let expiresAt ;
+    let expiresAt;
     let subscriptionId = null;
 
     const normalizedAlias = alias?.trim().toLowerCase();
+    // Determine the expiration date based on the user's subscription plan
     if (subscription.plan === "free") {
 
-        const activeUrlCount = await saveurl.countActiveUrlsByUser(userid);
-        if (activeUrlCount >= 7) {
-            throw new ApiError(403, "Free plan allows maximum 7 active URLs")
-        }
         expiresAt = new Date(
             Date.now() + 7 * 24 * 60 * 60 * 1000
         );
-    }
-    if (subscription.plan === "pro") {
+    } else if (subscription.plan === "pro") {
         subscriptionId = subscription._id;
-        expiresAt=new Date(subscription.currentPeriodEnd);
+        expiresAt = new Date(subscription.currentPeriodEnd);
 
-        expiresAt.setDate(expiresAt.getDate()+3);
+        expiresAt.setDate(expiresAt.getDate() + 3);
     }
-    if (normalizedAlias) {
-        if (RESERVED_ALIASES.has(normalizedAlias)) {
-            throw new ApiError(400, "This alias is reserved");
-        }
 
-        const existingAlias = await saveurl.findByShortUrl(normalizedAlias);
-        if (existingAlias) {
-            throw new ApiError(409, "This alias is already in use");
-        }
+    // =============================
+    // PRO PLAN 
+    // =============================
 
-        try {
-            await saveurl.saveshortUrl(normalizedAlias, normalizedUrl, userid, expiresAt,subscription.plan,subscriptionId);
-        } catch (error) {
-            // Protect against two requests claiming the same alias concurrently.
-            if (error?.code === 11000) {
+    if (subscription.plan === "pro") {
+
+        //============================
+        //PRO +CUSTOM ALIAS
+
+
+        if (normalizedAlias) {
+            if (RESERVED_ALIASES.has(normalizedAlias)) {
+                throw new ApiError(400, "This alias is reserved");
+            }
+
+            const existingAlias = await saveurl.findByShortUrl(normalizedAlias);
+
+            if (existingAlias) {
                 throw new ApiError(409, "This alias is already in use");
             }
-            throw error;
+
+            try {
+                await saveurl.saveshortUrl(
+                    normalizedAlias,
+                    normalizedUrl,
+                    userid,
+                    expiresAt,
+                    subscription.plan,
+                    subscriptionId
+                );
+            } catch (error) {
+                // Protect against two requests claiming the same alias concurrently.
+                if (error?.code === 11000) {
+                    throw new ApiError(409, "This alias is already in use");
+                }
+                throw error;
+            }
+            return buildShortUrl(normalizedAlias);
         }
-        return buildShortUrl(normalizedAlias);
+
+        // ===============================
+        // PRO + AUTO GENERATED ALIAS
+        //================================
+        const existingUrl = await urlSchema.findOne({
+            originalUrl: normalizedUrl,
+            userId: userid,
+            expiresAt: { $gt: new Date() }
+        });
+        if (existingUrl) {
+            return buildShortUrl(existingUrl.shortUrl);
+        }
+        const shortCode = await createUniqueShortCode(
+            normalizedUrl,
+            userid,
+            expiresAt,
+            subscription.plan,
+            subscriptionId
+        );
+
+        return buildShortUrl(shortCode);
+
+
+
     }
+    //=====================================
+    // FREE PLAN
+    //===================================== 
+    if (subscription.plan === "free") {
+        const session = await mongoose.startSession();
+        try {
 
-    const existingUrl = await urlSchema.findOne({ originalUrl: normalizedUrl, userId: userid ,expiresAt:{$gt: new Date()}});
-    if (existingUrl) return buildShortUrl(existingUrl.shortUrl);
+            //==============================
+            //resreve free url slot for user
+            //==============================
 
-    const shortCode = await createUniqueShortCode(normalizedUrl, userid, expiresAt,subscription.plan,subscriptionId);
-    return buildShortUrl(shortCode);
+            let result;
+            result = await session.withTransaction(async () => {
+                const reservedUser = await userDao.reserveFreeUrlSlot(
+                    userid,
+                    session
+                );
+                if (!reservedUser) {
+                    throw new ApiError(
+                        403,
+                        "Free URL limit reached. Upgrade to Pro for more URLs"
+                    );
+                }
 
+                //==============================
+                // free+custom AllIAS
+                //=============================
+
+                if (normalizedAlias) {
+                    if (RESERVED_ALIASES.has(normalizedAlias)) {
+                        throw new ApiError(400, "This alias is reserved");
+                    }
+                    const existingAlias = await saveurl.findByShortUrl(
+                        normalizedAlias
+                    );
+                    if (existingAlias) {
+                        throw new ApiError(409, "This alias is already in use");
+                    }
+                    try {
+                        await saveurl.saveshortUrl(
+                            normalizedAlias,
+                            normalizedUrl,
+                            userid,
+                            expiresAt,
+                            subscription.plan,
+                            subscriptionId,
+                            session
+                        );
+                    } catch (error) {
+                        if (error?.code === 11000) {
+                            throw new ApiError(409, "This alias is already in use");
+                        }
+                        throw error;
+                    }
+                    return buildShortUrl(normalizedAlias);
+                }
+                //===============================
+                // free+auto generated alias
+                //===============================
+                const existingUrl =
+                    await urlSchema.findOne(
+                        {
+                            originalUrl: normalizedUrl,
+                            userId: userid,
+                            expiresAt: { $gt: new Date() }
+                        },
+                        null,
+                        { session }
+                    );
+                if (existingUrl) {
+
+                    // We reserved a slot but
+                    // didn't create a URL.
+                    // Roll it back.
+
+                    throw new ReuseExistingUrlError(existingUrl.shortUrl);
+                }
+                const shortCode =
+                    await createUniqueShortCode(
+                        normalizedUrl,
+                        userid,
+                        expiresAt,
+                        subscription.plan,
+                        subscriptionId,
+                        session
+                    );
+
+                return buildShortUrl(shortCode);
+            });
+            return result;
+
+        } catch (error) {
+            if(error instanceof ReuseExistingUrlError) {
+                return buildShortUrl(error.shortUrl);
+            }
+
+            throw error;
+
+        } finally {
+
+            await session.endSession();
+        }
+    }
 }
 
 const GetOriginalUrl = async (shortUrl) => {
-    return urlSchema.findOneAndUpdate({ shortUrl, expiresAt: { $gt: new Date() } }, { $inc: { clicks: 1 } }, { new: true });
+    return urlSchema.findOneAndUpdate({ shortUrl, status: "active", expiresAt: { $gt: new Date() } }, { $inc: { clicks: 1 } }, { new: true });
 };
 
 const getMyUrls = async (userId) => {
@@ -116,17 +265,89 @@ const getMyUrls = async (userId) => {
 }
 
 const deleteUrlService = async (id, userid) => {
-    const url = await saveurl.getUrlById(id);
-    if (!url) {
-        throw new ApiError(404, "No url found");
+
+    const session = await mongoose.startSession();
+
+    try {
+        await session.startTransaction();
+        const url = await saveurl.getUrlById(id, session);
+        if (!url) {
+            throw new ApiError(404, "No url found");
+        }
+        //url.userId is a MongoDB ObjectId, while userid may also be an ObjectId. 
+        //Comparing them with !== usually returns true even if they represent the same value
+        if (url.userId.toString() !== userid.toString()) {
+            throw new ApiError(403, "Access forbidden");
+        }
+        const deletedurl = await saveurl.deleteUrl(id, userid, session);
+        if (!deletedurl) {
+            throw new ApiError(409, "Url is already deleted");
+        }
+        if (deletedurl.plan === "free") {
+            const releasedUser = await userDao.releaseFreeUrlSlot(
+                userid,
+                session
+            );
+
+            if (!releasedUser) {
+                throw new ApiError(
+                    500,
+                    "Unable to release Free URL slot"
+                );
+            }
+        }
+
+        await session.commitTransaction();
+        return deletedurl;
+
+    } catch (error) {
+
+        await session.abortTransaction();
+        throw error;
+
+    } finally {
+
+        session.endSession();
     }
-    //url.userId is a MongoDB ObjectId, while userid may also be an ObjectId. 
-    //Comparing them with !== usually returns true even if they represent the same value
-    if (url.userId.toString() !== userid.toString()) {
-        throw new ApiError(403, "Access forbidden");
-    }
-    const deleteurl = await saveurl.deletUrl(id, userid)
-    return deleteurl;
 }
 
-module.exports = { CreateShortUrlwithuser, GetOriginalUrl, getMyUrls, deleteUrlService };
+const expireUrlService = async (id) => {
+    const session = await mongoose.startSession();
+    try {
+        // await session.startTransaction();
+        let expireUrl = null;
+        await session.withTransaction(async () => {
+            expireUrl = await saveurl.expireUrl(id, session);
+
+            if (!expireUrl) {
+                return null;
+            }
+
+            if (expireUrl.plan === "free") {
+                const releasedUser = await userDao.releaseFreeUrlSlot(expireUrl.userId, session);
+                if (!releasedUser) {
+                    throw new ApiError(500, "Unable to release Free URL slot");
+                }
+            }
+        });
+
+
+        return expireUrl;
+
+    } catch (error) {
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
+        console.log("ERROR LABELS:", error.errorLabels);
+        console.log("ERROR CODE:", error.code);
+        console.log("ERROR NAME:", error.codeName);
+        throw error;
+
+    } finally {
+
+        await session.endSession();
+
+    }
+}
+
+module.exports = { CreateShortUrlwithuser, GetOriginalUrl, getMyUrls, deleteUrlService, buildShortUrl, expireUrlService };

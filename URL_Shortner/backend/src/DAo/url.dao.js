@@ -1,45 +1,80 @@
-const mongose =require("mongoose");
-const urlschema=require("../models/url.models.js");
+const urlschema = require("../models/url.models.js");
 
-
-const saveshortUrl=async (shorturl,longurl,userId,expiresAt ,plan,
-    subscriptionId)=>{
-    const newurl=new urlschema({
-        originalUrl:longurl,
-        shortUrl:shorturl,
+const saveshortUrl = async (shorturl, longurl, userId, expiresAt, plan,
+    subscriptionId, session) => {
+    const newurl = new urlschema({
+        originalUrl: longurl,
+        shortUrl: shorturl,
         expiresAt,
-         plan,
-    subscriptionId
+        plan,
+        subscriptionId
     })
-    if(userId){
-        newurl.userId=userId;
+    if (userId) {
+        newurl.userId = userId;
     }
-   return await newurl.save();
-    
-}
+    return await newurl.save({ session });
 
-const getUrlsByUserId=async(userId)=>{
-    return await urlschema.find({userId});
-}
+};
 
-const getUrlById=async(Id)=>{
-    return await urlschema.findById(Id);
-}
+const getUrlsByUserId = async (userId) => {
+    return await urlschema.find({ userId });
+};
+
+const getUrlById = async (Id, session) => {
+    return await urlschema.findById(Id).session(session);
+};
 
 const findByShortUrl = async (shortUrl) => {
     return await urlschema.findOne({ shortUrl });
-}
+};
 
-const deletUrl=async(Id)=>{
-    return await urlschema.findByIdAndDelete(Id);
-}
+const deleteUrl = async (Id, userId, session) => {
+    return await urlschema.findOneAndUpdate(
+        {
+            _id: Id,
+            userId,
+            status: "active"
+        },
+        {
+            $set: { status: "deleted" }
+        },
+        {
+            session,
+            returnDocument: "after"
+        }
+    );
+};
 
-const countActiveUrlsByUser=async(userId)=>{
+const expireUrl=async (Id,session)=>{
+    return await urlschema.findOneAndUpdate(
+        {
+            _id: Id,
+            status: "active"
+        },
+        {
+            $set: { status: "expired" }
+        },
+        {
+            session,
+            returnDocument: "after"
+        }
+    );
+};
+
+const countActiveUrlsByUser = async (userId) => {
     return await urlschema.countDocuments({
-        userId:userId,
-        expiresAt:{$gt:new Date()}
+        userId: userId,
+        expiresAt: { $gt: new Date() }
     });// needs one filter object, and inside that object we're giving it two conditions:
-}
+};
+
+const findexpiredActiveUrls=async(userId)=>{
+    return await urlschema.find({
+        userId:userId,
+        status:"active",
+        expiresAt: { $lt: new Date() }
+    });
+};
 
 const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
     return await urlschema.updateMany(
@@ -82,4 +117,16 @@ const upgradeFreeUrlsByUserId = async (userId, setData) => {
     );
 };
 
-module.exports={saveshortUrl,getUrlsByUserId,getUrlById,findByShortUrl,deletUrl,countActiveUrlsByUser,updateProUrlExpiry,upgradeUrlById,upgradeFreeUrlsByUserId};
+module.exports = {
+    saveshortUrl,
+    getUrlsByUserId,
+    getUrlById,
+    findByShortUrl,
+    deleteUrl,
+    expireUrl,
+    countActiveUrlsByUser,
+    updateProUrlExpiry,
+    upgradeUrlById,
+    upgradeFreeUrlsByUserId,
+    findexpiredActiveUrls
+};

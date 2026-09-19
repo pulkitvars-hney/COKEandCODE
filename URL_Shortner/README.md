@@ -8,6 +8,7 @@ Shortly is a full-stack URL shortener. Registered users can create, copy, view, 
 React + Vite client (port 5173)
   └─ development proxy: /api → Express API (port 3000)
        ├─ routes → controllers → services → DAOs
+       ├─ scheduled URL-expiry worker (every minute)
        ├─ JWT authentication in HTTP-only cookies
        └─ Mongoose → MongoDB (User, Url, and analytics collections)
 ```
@@ -27,6 +28,7 @@ The React client uses React Query for session state, mutations, and the user's s
 - Authenticated analytics overview for each owned URL
 - Validates HTTP/HTTPS URLs, route IDs, analytics intervals, and result limits
 - Centralized JSON error handling with ownership checks
+- URL lifecycle statuses (`active`, `expired`, `deleted`) and a scheduled expiry worker
 
 ## API
 
@@ -80,6 +82,14 @@ GET /api/:shortUrl
 ```
 
 Country and city will be empty during localhost testing because loopback IP addresses (`127.0.0.1` / `::1`) do not have a geographic location. Test with public traffic after deployment.
+
+## URL expiry worker
+
+After MongoDB connects, `backend/server.js` starts `src/jobs/urlExpiry.job.js`. The worker runs once per minute and is intended to find active URLs whose `expiresAt` is in the past, then call `expireUrlService` for each one.
+
+`expireUrlService` changes the URL status from `active` to `expired`. For Free URLs, it also decrements the owner’s `activeFreeUrlCount` in the same MongoDB transaction, returning the occupied Free-plan slot. Public redirects only resolve URLs that are both active and unexpired; deleted links are retained with status `deleted`.
+
+Current implementation note: the job invokes `findexpiredActiveUrls()` without a user ID, while that DAO currently includes `userId` in its query. Consequently, ordinary user-owned expired URLs are not selected by the scheduled job yet. The status model and expiry service are in place, but this query must be corrected before automated expiry can be treated as verified.
 
 ## Setup
 

@@ -1,10 +1,11 @@
 // import mongoose, { Schema } from "mongoose";
 // import bcrypt from "bcrypt"
-const mongoose=require("mongoose");
-const {Schema}=require("mongoose");
-const bcrypt=require("bcrypt");
-const jwt=require("jsonwebtoken");
+const mongoose = require("mongoose");
+const { Schema } = require("mongoose");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 require('dotenv').config();
+const { FREE_URL_LIMIT } = process.env;
 
 const userSchema = new Schema({
     username: {
@@ -18,7 +19,7 @@ const userSchema = new Schema({
         required: true,
         trim: true,
         unique: true,
-        lowercase:true,
+        lowercase: true,
     },
     password: {
         type: String,
@@ -26,24 +27,30 @@ const userSchema = new Schema({
         trim: true,
     },
     refreshToken: {
-        type:String,
-        default:"",
+        type: String,
+        default: "",
     },
     refreshTokenJti: {
         type: String,
         default: "",
     },
     avatar: {
-    type: String,
-    default: "",
-},
-},{timestamps:true})
+        type: String,
+        default: "",
+    },
+    activeFreeUrlCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: parseInt(FREE_URL_LIMIT)
+    }
+}, { timestamps: true })
 
 userSchema.pre("save", async function () {
     // `save` is a Mongoose middleware event. Run this hook before the user document is stored.
     // Avoid hashing the already-hashed password when saving unrelated changes, such as refreshToken.
     if (!this.isModified("password")) {
-        return ;
+        return;
     }
 
     // Hash the password before saving.
@@ -51,29 +58,29 @@ userSchema.pre("save", async function () {
 
     // next();
 });
-userSchema.methods.isPasswordCorrect= async function(password){
+userSchema.methods.isPasswordCorrect = async function (password) {
     // Use a regular function: Mongoose binds `this` to the current user document.
     // Arrow functions use the surrounding `this`, so `this.password` would not refer to this user.
-    return bcrypt.compare(password,this.password);
+    return bcrypt.compare(password, this.password);
 };
 
-userSchema.methods.generateAccessToken=function () {
-   // jwt.sign is synchronous. Keep only identity claims needed by protected routes in the access token.
+userSchema.methods.generateAccessToken = function () {
+    // jwt.sign is synchronous. Keep only identity claims needed by protected routes in the access token.
     return jwt.sign({
-        _id:this._id,
-        email:this.email,
-        username:this.username
-    },process.env.ACCESS_TOKEN_SECRET,{
-        expiresIn:process.env.ACCESS_TOKEN_EXPIRY
+        _id: this._id,
+        email: this.email,
+        username: this.username
+    }, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRY
     });
-} 
-userSchema.methods.generateRefreshToken=function (jti) {
+}
+userSchema.methods.generateRefreshToken = function (jti) {
     return jwt.sign({
-        _id:this._id,
+        _id: this._id,
         jti,
-    },process.env.REFRESH_TOKEN_SECRET,{
-        expiresIn:process.env.REFRESH_TOKEN_EXPIRY
+    }, process.env.REFRESH_TOKEN_SECRET, {
+        expiresIn: process.env.REFRESH_TOKEN_EXPIRY
     });
 }
 
-module.exports=mongoose.model("User",userSchema);
+module.exports = mongoose.model("User", userSchema);
