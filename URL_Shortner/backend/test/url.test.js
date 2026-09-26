@@ -5,6 +5,7 @@ const Analytics = require("../src/models/analytic.model");
 const Subscription = require("../src/models/subscription.model");
 const { expireUrlService } = require("../src/services/shorturlhelper.service");
 const User = require("../src/models/user.model");
+const AnalyticDao = require("../src/DAo/analytic.DAO");
 const FREE_URL_LIMIT = parseInt(process.env.FREE_URL_LIMIT);
 const user = {
     username: "url_test_user",
@@ -27,6 +28,10 @@ const createAuthCookie = async (userData = user) => {
 };
 
 describe("URL shortening API", () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     test("rejects URL creation without authentication", async () => {
         const response = await request(app)
             .post("/api/url/create")
@@ -249,6 +254,39 @@ describe("URL shortening API", () => {
         expect(response.statusCode).toBe(409);
     });
 
+    test("only one of two users can claim an alias concurrently", async () => {
+        const userACookie = await createAuthCookie();
+        const userBCookie = await createAuthCookie({
+            username: "alias_race_b",
+            email: "alias-race-b@example.com",
+            password: "Password@123",
+        });
+        const payload = { originalUrl: "https://example.com/race", alias: "race-alias" };
+
+        const [responseA, responseB] = await Promise.all([
+            request(app).post("/api/url/create").set("Cookie", userACookie).send(payload),
+            request(app).post("/api/url/create").set("Cookie", userBCookie).send(payload),
+        ]);
+        const statuses = [responseA.statusCode, responseB.statusCode].sort((a, b) => a - b);
+
+        expect(statuses).toEqual([201, 409]);
+        expect(await Url.countDocuments({ shortUrl: "race-alias" })).toBe(1);
+    });
+
+    test("only one of two same-user requests can claim an alias concurrently", async () => {
+        const cookie = await createAuthCookie();
+        const payload = { originalUrl: "https://example.com/same-race", alias: "same-race-alias" };
+
+        const [responseA, responseB] = await Promise.all([
+            request(app).post("/api/url/create").set("Cookie", cookie).send(payload),
+            request(app).post("/api/url/create").set("Cookie", cookie).send(payload),
+        ]);
+        const statuses = [responseA.statusCode, responseB.statusCode].sort((a, b) => a - b);
+
+        expect(statuses).toEqual([201, 409]);
+        expect(await Url.countDocuments({ shortUrl: "same-race-alias" })).toBe(1);
+    });
+
     test("reuses an existing generated URL for the same user and destination", async () => {
         const cookie = await createAuthCookie();
         const body = { originalUrl: "https://example.com/same" };
@@ -379,6 +417,25 @@ describe("URL shortening API", () => {
         expect(redirectResponse.statusCode).toBe(302);
         expect(storedUrl.clicks).toBe(1);
         expect(await Analytics.countDocuments({ urlId: storedUrl._id })).toBe(1);
+    });
+
+    test("redirects successfully even when analytics recording fails", async () => {
+        const cookie = await createAuthCookie();
+        await request(app)
+            .post("/api/url/create")
+            .set("Cookie", cookie)
+            .send({ originalUrl: "https://example.com/analytics-down", alias: "analytics-down" });
+
+        const spy = jest.spyOn(AnalyticDao, "createAnalytic");
+        spy.mockRejectedValueOnce(new Error("analytics database unavailable"));
+
+        const redirectResponse = await request(app).get("/api/analytics-down");
+        const storedUrl = await Url.findOne({ shortUrl: "analytics-down" });
+
+        expect(redirectResponse.statusCode).toBe(302);
+        expect(redirectResponse.headers.location).toBe("https://example.com/analytics-down");
+        expect(storedUrl.clicks).toBe(1);
+        expect(await Analytics.countDocuments({ urlId: storedUrl._id })).toBe(0);
     });
 
     test("does not record a click when an expired short URL is requested", async () => {

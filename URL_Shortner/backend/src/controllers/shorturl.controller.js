@@ -27,25 +27,32 @@ async function redirectShortUrl(req, res) {
         throw new ApiError(404, "Short URL not found");
     }
 
-    const userAgent = req.get("user-agent") || "";
-    const parsedUserAgent = UAParser(userAgent);
-    const ipAddress = req.ip || req.socket.remoteAddress || "";
-    const location = await getLocationFromIp(ipAddress);
-    const visitorId = crypto
-        .createHash("sha256")
-        .update(`${ipAddress}:${userAgent}`)
-        .digest("hex");
+    // Analytics is best-effort and secondary to the redirect. A recording
+    // failure must never replace the 302 with a 500, so every failure here
+    // is logged and swallowed; the redirect below always runs.
+    try {
+        const userAgent = req.get("user-agent") || "";
+        const parsedUserAgent = UAParser(userAgent);
+        const ipAddress = req.ip || req.socket.remoteAddress || "";
+        const location = await getLocationFromIp(ipAddress);
+        const visitorId = crypto
+            .createHash("sha256")
+            .update(`${ipAddress}:${userAgent}`)
+            .digest("hex");
 
-    await AnalyticsService.logClick(url, {
-        ipAddress,
-        userAgent,
-        browser: parsedUserAgent.browser.name || "Unknown",
-        os: parsedUserAgent.os.name || "Unknown",
-        deviceType: parsedUserAgent.device.type || "desktop",
-        referrer: req.get("referer") || "",
-        visitorId,
-        ...location,
-    });
+        await AnalyticsService.logClick(url, {
+            ipAddress,
+            userAgent,
+            browser: parsedUserAgent.browser.name || "Unknown",
+            os: parsedUserAgent.os.name || "Unknown",
+            deviceType: parsedUserAgent.device.type || "desktop",
+            referrer: req.get("referer") || "",
+            visitorId,
+            ...location,
+        });
+    } catch (error) {
+        console.error("Analytics recording failed; the redirect is unaffected.", error);
+    }
 
     res.redirect(url.originalUrl);
 }

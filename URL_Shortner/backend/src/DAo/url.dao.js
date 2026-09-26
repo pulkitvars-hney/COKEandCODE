@@ -24,8 +24,8 @@ const getUrlById = async (Id, session) => {
     return await urlschema.findById(Id).session(session);
 };
 
-const findByShortUrl = async (shortUrl) => {
-    return await urlschema.findOne({ shortUrl });
+const findByShortUrl = async (shortUrl, session = null) => {
+    return await urlschema.findOne({ shortUrl }).session(session);
 };
 
 const deleteUrl = async (Id, userId, session) => {
@@ -68,9 +68,8 @@ const countActiveUrlsByUser = async (userId) => {
     });// needs one filter object, and inside that object we're giving it two conditions:
 };
 
-const findexpiredActiveUrls=async(userId)=>{
+const findexpiredActiveUrls=async()=>{
     return await urlschema.find({
-        userId:userId,
         status:"active",
         expiresAt: { $lt: new Date() }
     });
@@ -90,13 +89,22 @@ const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
     );
 };
 
-const upgradeUrlById = async (urlId, setData) => {
-    return await urlschema.findByIdAndUpdate(
-        urlId,
+const upgradeUrlById = async (urlId, userId, setData, session) => {
+    // findOneAndUpdate, not findByIdAndUpdate: the filter is a condition
+    // object (owner + eligibility), and findByIdAndUpdate would wrap the
+    // entire object as the _id value instead of applying each condition.
+    return await urlschema.findOneAndUpdate(
+        {
+            _id: urlId,
+            userId,
+            plan: "free",
+            status: "active",
+            expiresAt: { $gt: new Date() },
+        },
         {
             $set: setData,
         },
-        {
+        {   session,
             returnDocument: "after",
         }
     );
@@ -104,16 +112,20 @@ const upgradeUrlById = async (urlId, setData) => {
 
 // Only unexpired Free URLs of this owner are selectable for promotion.
 // Already-Pro URLs and other users' URLs can never match the filter.
-const upgradeFreeUrlsByUserId = async (userId, setData) => {
+const upgradeFreeUrlsByUserId = async (userId, setData,session) => {
     return await urlschema.updateMany(
         {
             userId,
             plan: "free",
+            status:"active",
             expiresAt: { $gt: new Date() },
         },
         {
             $set: setData,
-        }
+        },{
+            session,
+            returnDocument:"after",
+        },
     );
 };
 

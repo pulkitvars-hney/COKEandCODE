@@ -65,6 +65,24 @@ const releaseFreeUrlSlot = async (userId, session) => {
     );
 };
 
+const releaseFreeUrlSlots = async (userId, count, session) => {
+    return await userschema.findOneAndUpdate(
+        {
+            _id: userId,
+            activeFreeUrlCount: { $gte: count },
+        },
+        {
+            $inc: {
+                activeFreeUrlCount: -count,
+            },
+        },
+        {
+            session,
+            returnDocument: "after",
+        }
+    );
+};
+
  module.exports={
     createUser,
     findByUserID,
@@ -72,6 +90,7 @@ const releaseFreeUrlSlot = async (userId, session) => {
     findUserByEmail,
     updateRefreshToken,
     reserveFreeUrlSlot,
-    releaseFreeUrlSlot
- };
+    releaseFreeUrlSlot,
+    releaseFreeUrlSlots,
+};
 

@@ -3,6 +3,8 @@ const app = require("../src/app");
 const Url = require("../src/models/url.models");
 const Analytics = require("../src/models/analytic.model");
 const Subscription = require("../src/models/subscription.model");
+const User = require("../src/models/user.model");
+const urlDao = require("../src/DAo/url.dao");
 
 const user = {
     username: "url_upgrade_user",
@@ -127,6 +129,47 @@ describe("URL-level Pro upgrade API", () => {
             expect(unchanged.subscriptionId).toBeNull();
         });
 
+        test("DAO ownership filter blocks upgrading another user's URL", async () => {
+            const ownerCookie = await createAuthCookie();
+            const url = await createOwnedUrl(ownerCookie, "https://example.com/dao-private", "dao-private");
+
+            const otherUser = {
+                username: "url_dao_other",
+                email: "url-upgrade-dao-other@example.com",
+                password: "Password@123",
+            };
+            const signupResponse = await request(app).post("/api/auth/signup").send(otherUser);
+            expect(signupResponse.statusCode).toBe(201);
+            const other = await User.findOne({ username: otherUser.username });
+            expect(other).not.toBeNull();
+
+            const setData = {
+                plan: "pro",
+                subscriptionId: url.subscriptionId,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            };
+
+            // The DAO itself must refuse to promote a URL it does not own,
+            // even if a caller skips the service-layer ownership check.
+            const crossUserResult = await urlDao.upgradeUrlById(
+                url._id,
+                other._id,
+                setData
+            );
+            expect(crossUserResult).toBeNull();
+
+            const unchanged = await Url.findById(url._id);
+            expect(unchanged.plan).toBe("free");
+
+            const ownerResult = await urlDao.upgradeUrlById(
+                url._id,
+                url.userId,
+                setData
+            );
+            expect(ownerResult).not.toBeNull();
+            expect(ownerResult.plan).toBe("pro");
+        });
+
         test("returns 404 for an unknown URL id", async () => {
             const cookie = await createAuthCookie();
             // Subscriptions are created lazily; prime one so the account upgrade succeeds.
@@ -204,6 +247,42 @@ describe("URL-level Pro upgrade API", () => {
             const unchanged = await Url.findById(url._id);
             expect(unchanged.plan).toBe("free");
             expect(unchanged.subscriptionId).toBeNull();
+        });
+        test("decrements activeFreeUrlCount when a Free URL is upgraded", async () => {
+            const cookie = await createAuthCookie();
+
+            const urlA = await createOwnedUrl(
+                cookie,
+                "https://example.com/counter-a",
+                "counter-a"
+            );
+
+            const urlB = await createOwnedUrl(
+                cookie,
+                "https://example.com/counter-b",
+                "counter-b"
+            );
+
+            const before = await User.findById(urlA.userId);
+            expect(before.activeFreeUrlCount).toBe(2);
+
+            await upgradeAccountToPro(cookie);
+
+            const response = await request(app)
+                .post(`/api/url/${urlA._id}/upgrade`)
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+
+            const after = await User.findById(urlA.userId);
+
+            expect(after.activeFreeUrlCount).toBe(1);
+
+            const upgraded = await Url.findById(urlA._id);
+            const stillFree = await Url.findById(urlB._id);
+
+            expect(upgraded.plan).toBe("pro");
+            expect(stillFree.plan).toBe("free");
         });
     });
 
@@ -306,6 +385,117 @@ describe("URL-level Pro upgrade API", () => {
             expect(skipped.subscriptionId).toBeNull();
         });
 
+        test("skips expired Free URLs and releases only upgraded slots", async () => {
+            const cookie = await createAuthCookie();
+
+            const activeUrl = await createOwnedUrl(
+                cookie,
+                "https://example.com/live",
+                "live-link"
+            );
+
+            const expiredUrl = await createOwnedUrl(
+                cookie,
+                "https://example.com/dead",
+                "dead-link"
+            );
+
+            await Url.updateOne(
+                { _id: expiredUrl._id },
+                {
+                    $set: {
+                        expiresAt: new Date(Date.now() - 1_000),
+                    },
+                }
+            );
+            await User.updateOne(
+    { _id: activeUrl.userId },
+    {
+        $set: {
+            activeFreeUrlCount: 1,
+        },
+    }
+);
+            await upgradeAccountToPro(cookie);
+
+            const before = await User.findById(activeUrl.userId);
+
+            // Only activeUrl should still count.
+            expect(before.activeFreeUrlCount).toBe(1);
+
+            const response = await request(app)
+                .post("/api/url/upgrade-all")
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.data.modifiedCount).toBe(1);
+
+            const after = await User.findById(activeUrl.userId);
+
+            expect(after.activeFreeUrlCount).toBe(0);
+
+            const promoted = await Url.findById(activeUrl._id);
+            expect(promoted.plan).toBe("pro");
+
+            const skipped = await Url.findById(expiredUrl._id);
+            expect(skipped.plan).toBe("free");
+        });
+
+        test("skips deleted Free URLs during bulk upgrade", async () => {
+            const cookie = await createAuthCookie();
+
+            const activeUrl = await createOwnedUrl(
+                cookie,
+                "https://example.com/active",
+                "active-link"
+            );
+
+            const deletedUrl = await createOwnedUrl(
+                cookie,
+                "https://example.com/deleted",
+                "deleted-link"
+            );
+
+            await Url.updateOne(
+                { _id: deletedUrl._id },
+                {
+                    $set: {
+                        status: "deleted",
+                    },
+                }
+            );
+
+            // Deleted URL no longer consumes Free capacity.
+            await User.updateOne(
+                { _id: activeUrl.userId },
+                {
+                    $set: {
+                        activeFreeUrlCount: 1,
+                    },
+                }
+            );
+
+            await upgradeAccountToPro(cookie);
+
+            const response = await request(app)
+                .post("/api/url/upgrade-all")
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.data.modifiedCount).toBe(1);
+
+            const active = await Url.findById(activeUrl._id);
+            const deleted = await Url.findById(deletedUrl._id);
+            const user = await User.findById(activeUrl.userId);
+
+            expect(active.plan).toBe("pro");
+
+            expect(deleted.plan).toBe("free");
+            expect(deleted.status).toBe("deleted");
+
+            expect(user.activeFreeUrlCount).toBe(0);
+        });
+
         test("returns zero counts when no eligible Free URLs exist", async () => {
             const cookie = await createAuthCookie();
             await request(app).get("/api/subscription/current").set("Cookie", cookie);
@@ -333,6 +523,108 @@ describe("URL-level Pro upgrade API", () => {
             expect(response.statusCode).toBe(403);
             expect(await Url.findOne({ shortUrl: "no-pro" }).then((url) => url.plan)).toBe("free");
         });
+        test("decrements activeFreeUrlCount by the number of URLs upgraded", async () => {
+            const cookie = await createAuthCookie();
+
+            const urlA = await createOwnedUrl(
+                cookie,
+                "https://example.com/bulk-counter-a",
+                "bulk-counter-a"
+            );
+
+            const urlB = await createOwnedUrl(
+                cookie,
+                "https://example.com/bulk-counter-b",
+                "bulk-counter-b"
+            );
+
+            const urlC = await createOwnedUrl(
+                cookie,
+                "https://example.com/bulk-counter-c",
+                "bulk-counter-c"
+            );
+
+            const before = await User.findById(urlA.userId);
+            expect(before.activeFreeUrlCount).toBe(3);
+
+            await upgradeAccountToPro(cookie);
+
+            const response = await request(app)
+                .post("/api/url/upgrade-all")
+                .set("Cookie", cookie);
+
+            expect(response.statusCode).toBe(200);
+
+            expect(response.body.data).toEqual(
+                expect.objectContaining({
+                    matchedCount: 3,
+                    modifiedCount: 3,
+                })
+            );
+
+            const after = await User.findById(urlA.userId);
+
+            expect(after.activeFreeUrlCount).toBe(0);
+
+            for (const id of [urlA._id, urlB._id, urlC._id]) {
+                const url = await Url.findById(id);
+                expect(url.plan).toBe("pro");
+            }
+        });
+    });
+    test("keeps Free URL counter consistent during concurrent bulk upgrade and URL creation", async () => {
+        const cookie = await createAuthCookie();
+
+        const urls = [];
+
+        for (let i = 0; i < 6; i++) {
+            urls.push(
+                await createOwnedUrl(
+                    cookie,
+                    `https://example.com/race-${i}`,
+                    `race-${i}`
+                )
+            );
+        }
+
+        const userId = urls[0].userId;
+
+        const before = await User.findById(userId);
+        expect(before.activeFreeUrlCount).toBe(6);
+
+        await upgradeAccountToPro(cookie);
+
+        const [bulkResult, createResult] = await Promise.allSettled([
+            request(app)
+                .post("/api/url/upgrade-all")
+                .set("Cookie", cookie),
+
+            request(app)
+                .post("/api/url/create")
+                .set("Cookie", cookie)
+                .send({
+                    originalUrl: "https://example.com/concurrent-create",
+                }),
+        ]);
+
+        expect(bulkResult.status).toBe("fulfilled");
+        expect(bulkResult.value.statusCode).toBe(200);
+
+        expect(createResult.status).toBe("fulfilled");
+
+        const user = await User.findById(userId);
+
+        const activeFreeUrls = await Url.find({
+            userId,
+            plan: "free",
+            status: "active",
+            expiresAt: { $gt: new Date() },
+        });
+
+        expect(user.activeFreeUrlCount).toBe(activeFreeUrls.length);
+
+        expect(user.activeFreeUrlCount).toBeGreaterThanOrEqual(0);
+        expect(user.activeFreeUrlCount).toBeLessThanOrEqual(7);
     });
 
     describe("POST /api/subscription/upgrade validation", () => {
@@ -364,3 +656,26 @@ describe("URL-level Pro upgrade API", () => {
         });
     });
 });
+// 4
+
+// What your current file already covers
+
+// You already test:
+
+// owner can upgrade
+// clicks survive upgrade
+// analytics survive upgrade
+// authentication
+// ownership
+// nonexistent URL
+// malformed ID
+// already-Pro URL
+// no Pro subscription
+// expired single URL
+// bulk upgrade
+// other-user isolation
+// already-Pro exclusion
+// expired exclusion
+// zero eligible URLs
+// no Pro subscription
+// subscription validation
