@@ -16,7 +16,7 @@ const getRecentClicks = asyncHandler(async (req, res) => {
     const { urlId } = req.params;
     const { limit } = req.validatedQuery;
 
-    // The service validates URL ownership and validates/caps the requested limit.
+    // The service validates URL ownership; the route validator enforces the limit (1-100).
     const recentClicks = await analyticsService.getRecentClicks(urlId, req.user._id, limit);
 
     return res.status(200).json(

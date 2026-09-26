@@ -20,10 +20,6 @@ const getOverview = async (urlId, userId, interval = "day") => {
     }
     const timelineFormat = dateFormat[interval];
 
-    if (!timelineFormat) {
-        throw new ApiError(400, "Invalid interval");
-    }
-
     // Aggregation pipelines do not cast strings to ObjectIds automatically.
     // Use the loaded URL document's ObjectId so analytics records match.
     const analyticsUrlId = url._id;
@@ -60,13 +56,8 @@ const getRecentClicks = async (urlId, userId, limit = 20) => {
         throw new ApiError(403, "you are not authorized to view analytics for this url");
     }
 
-    const parsedLimit = Number(limit);
-    if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
-        throw new ApiError(400, "limit must be a positive integer");
-    }
-
-    // Prevent a single request from returning an unbounded analytics history.
-    const recentClicks = await AnalyticDao.getRecentClicks(url._id, Math.min(parsedLimit, 100));
+    // The route validator already enforces limit as an integer in [1, 100].
+    const recentClicks = await AnalyticDao.getRecentClicks(url._id, limit);
 
     // Keep the API response stable even if an older analytics record lacks a field.
     return recentClicks.map((click) => ({

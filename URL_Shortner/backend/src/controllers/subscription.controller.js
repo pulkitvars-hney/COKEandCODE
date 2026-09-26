@@ -1,7 +1,6 @@
 const {currentSubscription,
     SubscriptionHistory,
-    upgradeSubscription,
-    cancelSubscription
+    upgradeSubscription
 } = require("../services/subscription.service");
 
 const ApiResponse=require("../utils/ApiResponse");

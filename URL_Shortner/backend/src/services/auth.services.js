@@ -3,16 +3,9 @@ const ApiError = require("../utils/ApiError");
 // const { findByUsername } = require("../DAo/user.dao")
 
 const signup = async (userdata) => {
-    // `userdata` is the plain object received from req.body.
+    // `userdata` is the plain object received from req.body, already
+    // validated by signupSchema on the route.
     const { username, email, password } = userdata;
-    // A simple truthy check accepts "   "; trim() rejects whitespace-only values too.
-    if (
-        !username?.trim() ||
-        !email?.trim() ||
-        !password?.trim()
-    ) {
-        throw new ApiError(400, "All fields are required");
-    }
     const emailexist = await findUserByEmail(email);
     if (emailexist) {
         throw new ApiError(409, "email already exists");

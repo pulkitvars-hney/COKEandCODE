@@ -75,20 +75,6 @@ const findexpiredActiveUrls=async()=>{
     });
 };
 
-const updateProUrlExpiry = async (subscriptionId, expiresAt) => {
-    return await urlschema.updateMany(
-        {
-            subscriptionId,
-            plan: "pro",
-        },
-        {
-            $set: {
-                expiresAt,
-            },
-        }
-    );
-};
-
 const upgradeUrlById = async (urlId, userId, setData, session) => {
     // findOneAndUpdate, not findByIdAndUpdate: the filter is a condition
     // object (owner + eligibility), and findByIdAndUpdate would wrap the
@@ -137,7 +123,6 @@ module.exports = {
     deleteUrl,
     expireUrl,
     countActiveUrlsByUser,
-    updateProUrlExpiry,
     upgradeUrlById,
     upgradeFreeUrlsByUserId,
     findexpiredActiveUrls

@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const { updateProUrlExpiry, getUrlById, upgradeUrlById, upgradeFreeUrlsByUserId } = require("../DAo/url.dao")
+const { getUrlById, upgradeUrlById, upgradeFreeUrlsByUserId } = require("../DAo/url.dao")
 const { createSubscription, getActiveSubscriptionByUserId, getSubscriptionHistory, deactivateSubscription, expireSubscriptionsByUserId } = require("../DAo/subscription.DAO");
 
 const ApiError = require("../utils/ApiError");
