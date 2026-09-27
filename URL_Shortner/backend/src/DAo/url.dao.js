@@ -64,6 +64,7 @@ const expireUrl=async (Id,session)=>{
 const countActiveUrlsByUser = async (userId) => {
     return await urlschema.countDocuments({
         userId: userId,
+        status:"active",
         expiresAt: { $gt: new Date() }
     });// needs one filter object, and inside that object we're giving it two conditions:
 };

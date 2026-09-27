@@ -33,6 +33,7 @@ export const getCurrentUser = async () => {
 
 export const isActiveUrl = (url) => {
   if (!url?.expiresAt) return false
+  if (url.status !== "active") return false
   return new Date(url.expiresAt).getTime() > Date.now()
 }
 
