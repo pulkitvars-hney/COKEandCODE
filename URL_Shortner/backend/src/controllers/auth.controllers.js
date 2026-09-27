@@ -69,15 +69,10 @@ const logoutuser=asyncHandler(async(req,res)=>{
     
     await removeRefreshToken(req.user._id);
   
-const options={
-    httpOnly:true,
-    secure:process.env.NODE_ENV==="production",
-    sameSite:"lax"
-};
  return res
         .status(200)
-        .clearCookie("accessToken",options)
-        .clearCookie("refreshToken",options)
+        .clearCookie("accessToken",cookieOptions)
+        .clearCookie("refreshToken",cookieOptions)
         .json(
             new ApiResponse(
                 200,

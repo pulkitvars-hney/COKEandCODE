@@ -179,7 +179,8 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
                         throw new ApiError(400, "This alias is reserved");
                     }
                     const existingAlias = await saveurl.findByShortUrl(
-                        normalizedAlias
+                        normalizedAlias,
+                        session
                     );
                     if (existingAlias) {
                         throw new ApiError(409, "This alias is already in use");

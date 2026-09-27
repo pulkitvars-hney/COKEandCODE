@@ -6,14 +6,10 @@ const crypto = require("crypto");
 const {z}=require("zod");
 
 const login=async(userdata)=>{
-    // userdata is a plain JavaScript object received from req.body
+    // userdata is a plain JavaScript object received from req.body,
+    // already validated by loginSchema on the route (identifier-or-email
+    // required, password non-empty).
     const {identifier,password}=userdata;
-     if (
-        !identifier?.trim() ||
-        !password?.trim()
-    ) {
-        throw new ApiError(400, "All fields are required");
-    }
     const normalizedIdentifier=identifier.trim();
     const user=z.string().email().safeParse(normalizedIdentifier).success
         ? await findUserByEmail(normalizedIdentifier.toLowerCase())
