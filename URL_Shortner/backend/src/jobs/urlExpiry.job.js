@@ -12,13 +12,19 @@ const startUrlExpiryjob=()=>{
 // 12:02 → check
 // 12:03 → check
     cron.schedule("*/1 * * * *",async()=>{
+        let expiredUrls;
         try {
-            const expiredUrls=await saveurl.findexpiredActiveUrls();
-            for(const url of expiredUrls){
-                await expireUrlService(url._id);
-            }
+            expiredUrls=await saveurl.findexpiredActiveUrls();
         }catch(error){
             console.error("url expiry job failed",error);
+            return;
+        }
+        for(const url of expiredUrls){
+            try {
+                await expireUrlService(url._id);
+            } catch (error) {
+                console.error(`url expiry job failed for url ${url._id}`,error);
+            }
         }
     });
 
