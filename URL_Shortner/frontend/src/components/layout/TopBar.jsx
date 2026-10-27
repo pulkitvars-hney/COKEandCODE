@@ -1,135 +1,50 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import ThemeToggle from '../ui/ThemeToggle'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 
-export default function TopBar({ user, onLogout, loggingOut, onToggleSidebar }) {
+const navItems = [
+  { label: 'Shorten link', to: '/dashboard#shorten' },
+  { label: 'Analytics', to: '/analytics' },
+  { label: 'Subscription', to: '/subscription' },
+]
+
+export default function TopBar({ user, onLogout, loggingOut }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const buttonRef = useRef(null)
-  const navigate = useNavigate()
-
-  const close = useCallback(() => setMenuOpen(false), [])
+  const location = useLocation()
 
   useEffect(() => {
-    if (!menuOpen) return
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target) && !buttonRef.current?.contains(e.target)) {
-        close()
-      }
+    if (!menuOpen) return undefined
+    const close = (event) => {
+      if (!menuRef.current?.contains(event.target) && !buttonRef.current?.contains(event.target)) setMenuOpen(false)
     }
-    const handleKey = (e) => {
-      if (e.key === 'Escape') {
-        close()
-        buttonRef.current?.focus()
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [menuOpen, close])
-
-  const navigateAndClose = (path) => {
-    close()
-    navigate(path)
-  }
-
-  const menuItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: 'M4 6h16M4 12h16M4 18h7' },
-    { label: 'Subscription', path: '/subscription', icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
-  ]
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [menuOpen])
 
   return (
-    <header className="sticky top-0 z-30 flex h-12 items-center border-b border-[var(--border)] bg-[var(--bg-surface)]/80 backdrop-blur-xl px-4 sm:px-6">
-      <div className="flex items-center gap-3 lg:hidden">
-        <button
-          type="button"
-          onClick={onToggleSidebar}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-          aria-label="Toggle sidebar"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
-        <span className="text-sm font-bold text-[var(--text-primary)]">Shortly</span>
-      </div>
-
-      <div className="hidden lg:block" />
-
-      <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
-        {user && (
-          <div className="relative">
-            <button
-              ref={buttonRef}
-              type="button"
-              onClick={() => setMenuOpen((o) => !o)}
-              className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-              aria-expanded={menuOpen}
-              aria-haspopup="true"
-            >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] font-bold text-white">
-                {user.username?.[0]?.toUpperCase() || '?'}
-              </span>
-              <span className="hidden text-xs sm:inline">@{user.username}</span>
-              <svg viewBox="0 0 24 24" className={`h-3 w-3 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-
-            {menuOpen && (
-              <div
-                ref={menuRef}
-                className="glass-strong absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-[var(--border)] p-1.5 shadow-xl shadow-black/10 dark:shadow-black/30"
-                role="menu"
-                aria-label="Account menu"
-              >
-                {/* user identity */}
-                <div className="border-b border-[var(--border)] px-3 py-2.5 mb-1">
-                  <p className="text-xs font-semibold text-[var(--text-primary)]">@{user.username}</p>
-                  <p className="text-[11px] text-[var(--text-muted)]">Account</p>
-                </div>
-
-                {menuItems.map((item) => (
-                  <button
-                    key={item.path}
-                    type="button"
-                    onClick={() => navigateAndClose(item.path)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                    role="menuitem"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={item.icon} />
-                    </svg>
-                    {item.label}
-                  </button>
-                ))}
-
-                <div className="my-1 border-t border-[var(--border)]" />
-
-                <button
-                  type="button"
-                  onClick={() => { close(); onLogout() }}
-                  disabled={loggingOut}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-muted)] disabled:opacity-50"
-                  role="menuitem"
-                >
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  {loggingOut ? 'Logging out…' : 'Log out'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--bg-surface)]/95 shadow-sm shadow-[var(--text-primary)]/5 backdrop-blur-xl">
+      <div className="relative mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+        <NavLink to="/dashboard" className="shrink-0 text-base font-bold tracking-tight text-[var(--text-primary)]">Shortly</NavLink>
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex" aria-label="Workspace navigation">
+          {navItems.map((item) => <NavLink key={item.label} to={item.to} className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${`${location.pathname}${location.hash}` === item.to ? 'bg-[var(--accent-muted)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}>{item.label}</NavLink>)}
+        </nav>
+        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-2 md:hidden" aria-label="Workspace navigation">
+          {navItems.map((item) => <NavLink key={item.label} to={item.to} className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">{item.label}</NavLink>)}
+        </nav>
+        <div className="relative shrink-0">
+          <button ref={buttonRef} type="button" onClick={() => setMenuOpen((open) => !open)} className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]" aria-expanded={menuOpen} aria-haspopup="menu">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-[10px] font-bold text-white">{user?.username?.[0]?.toUpperCase() || '?'}</span>
+            <span className="hidden sm:inline">@{user?.username}</span>
+          </button>
+          {menuOpen && <div ref={menuRef} className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-1.5 shadow-xl shadow-[var(--text-primary)]/10" role="menu">
+            <p className="mb-1 border-b border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]">@{user?.username}</p>
+            {['Profile:/profile', 'Dashboard:/dashboard', 'Settings:/settings'].map((entry) => { const [label, to] = entry.split(':'); return <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className="block rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]" role="menuitem">{label}</NavLink> })}
+            <div className="mt-1 border-t border-[var(--border)] pt-1">
+              <button type="button" onClick={onLogout} disabled={loggingOut} className="block w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-[var(--danger)] hover:bg-[var(--danger-muted)] disabled:cursor-not-allowed disabled:opacity-60" role="menuitem">{loggingOut ? 'Logging out…' : 'Log out'}</button>
+            </div>
+          </div>}
+        </div>
       </div>
     </header>
   )

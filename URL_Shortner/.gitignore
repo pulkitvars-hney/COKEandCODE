@@ -4,3 +4,4 @@ frontend/dist/
 backend/.env
 .env
 .project-context.md
+.recovery-inspection/

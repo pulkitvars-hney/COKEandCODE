@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import ThemeToggle from './ThemeToggle'
 
 export default function ExpiredPage({ onGoHome }) {
   return (
@@ -14,7 +13,6 @@ export default function ExpiredPage({ onGoHome }) {
           </span>
           <span className="text-base font-bold text-[var(--text-primary)]">Shortly</span>
         </Link>
-        <ThemeToggle />
       </header>
 
       <main className="flex-1 flex items-center justify-center px-5 py-12">

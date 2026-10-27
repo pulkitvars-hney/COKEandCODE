@@ -53,4 +53,15 @@ const loginSchema=z.object({
     password
 }));
 
-module.exports={signupSchema, loginSchema};
+const forgotPasswordSchema = z.object({
+    email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+const resetPasswordSchema = z.object({
+    password: z.string()
+        .min(8, "Password must be at least 8 characters long")
+        .max(64, "Password must be less than 64 characters long")
+        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/, "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character"),
+});
+
+module.exports={signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema};

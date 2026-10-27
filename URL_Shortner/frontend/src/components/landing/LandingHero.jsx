@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom'
-import ThemeToggle from '../ui/ThemeToggle'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
 import PricingSection from './PricingSection'
@@ -37,7 +36,6 @@ export default function LandingHero() {
             <a href="#product" className="hover:text-[var(--text-primary)]">Product</a>
             <a href="#pricing" className="hover:text-[var(--text-primary)]">Pricing</a>
           </nav>
-          <ThemeToggle className="h-8 w-8" />
         </div>
       </header>
 

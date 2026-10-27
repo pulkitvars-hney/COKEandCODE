@@ -1,6 +1,6 @@
 const mongoose =require("mongoose")
 const userschema=require("../models/user.model");
-const FREE_URL_LIMIT = parseInt(process.env.FREE_URL_LIMIT);
+const { FREE_URL_LIMIT } = require("../constant/freeUrlLimit");
  const createUser=async (userdata)=>{
     // userdata is a obj 
 

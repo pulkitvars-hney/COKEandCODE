@@ -97,7 +97,10 @@ export default function AnalyticsPanel({ link, onClose }) {
           </Card>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
-            <Breakdown title="Countries" items={overview.countryStats} />
+            <div>
+              <Breakdown title="Countries" items={overview.countryStats} />
+              <p className="mt-2 px-1 text-xs text-[var(--text-muted)]">Location is available only for clicks received from public IP addresses. Localhost and private-network tests appear as Unknown.</p>
+            </div>
             <Breakdown title="Browsers" items={overview.browserStats} />
             <Breakdown title="Devices" items={overview.deviceStats} />
             <Breakdown title="Operating systems" items={overview.osStats} />

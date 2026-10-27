@@ -14,7 +14,6 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
     identifier: '',
     password: '',
   })
-  const [notice, setNotice] = useState('')
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -37,11 +36,6 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
       })
     },
     onSuccess: (response) => {
-      if (!isLogin) {
-        setNotice('Account created. Log in with your email or username.')
-        setForm((current) => ({ ...current, password: '' }))
-        return
-      }
       onAuthenticated(response.data.user)
     },
   })
@@ -52,16 +46,18 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
 
   const submit = (event) => {
     event.preventDefault()
-    setNotice('')
     mutation.mutate()
+  }
+
+  const continueWithGoogle = () => {
+    window.location.assign('/api/auth/google')
   }
 
   return (
     <div className="w-full max-w-md">
-      {/* Back to home */}
       <Link
         to="/"
-        className="mb-6 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
+        className="mb-5 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <line x1="19" y1="12" x2="5" y2="12" />
@@ -70,9 +66,8 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
         Back to home
       </Link>
 
-      {/* Branding + heading */}
-      <div className="mb-8">
-        <Link to="/" className="mb-5 inline-flex items-center gap-2">
+      <section className="rounded-3xl border-2 border-[var(--border)] bg-[var(--bg-surface)] p-6 shadow-xl shadow-[rgba(107,39,55,0.12)] sm:p-8">
+        <Link to="/" className="inline-flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)]">
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-white" aria-hidden="true">
               <path fill="currentColor" d="M10.59 13.41a1 1 0 0 0 1.42 0l2.83-2.83a4 4 0 1 0-5.66-5.66l-1.42 1.41a1 1 0 1 0 1.42 1.42l1.41-1.41a2 2 0 1 1 2.83 2.83l-2.83 2.83a1 1 0 0 0 0 1.42Z" />
@@ -82,6 +77,12 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
           <span className="text-base font-bold text-[var(--text-primary)]">Shortly</span>
         </Link>
 
+        <div className="mt-7 flex rounded-xl bg-[var(--bg-muted)] p-1 text-sm font-semibold">
+          <Link to="/login" className={`flex-1 rounded-lg px-3 py-2 text-center transition ${isLogin ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>Log in</Link>
+          <Link to="/signup" className={`flex-1 rounded-lg px-3 py-2 text-center transition ${!isLogin ? 'bg-[var(--bg-surface)] text-[var(--accent)] shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}>Sign up</Link>
+        </div>
+
+        <div className="mt-7 text-center">
         <h1 className="font-[family-name:var(--font-doodle)] text-3xl font-bold text-[var(--text-primary)]">
           {isLogin ? 'Welcome back' : 'Create your account'}
         </h1>
@@ -90,11 +91,9 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
             ? 'Log in to manage your links and analytics.'
             : 'Start shortening links in seconds.'}
         </p>
-      </div>
+        </div>
 
-      {/* Form surface */}
-      <div className="glass-strong rounded-2xl p-6 sm:p-8">
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="mt-7 space-y-4">
           {!isLogin && (
             <>
               <Input
@@ -140,14 +139,15 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
             required
           />
 
+          {isLogin && (
+            <div className="-mt-1 text-right">
+              <Link to="/forgot-password" className="text-xs font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)]">Forgot password?</Link>
+            </div>
+          )}
+
           {mutation.error && (
             <p className="rounded-md border border-[var(--danger)] bg-[var(--danger-muted)] px-3 py-2 text-sm text-[var(--danger)]" role="alert">
               {mutation.error.message}
-            </p>
-          )}
-          {notice && (
-            <p className="rounded-md border border-[var(--accent)] bg-[var(--accent-muted)] px-3 py-2 text-sm text-[var(--accent)]">
-              {notice}
             </p>
           )}
 
@@ -162,9 +162,18 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
           >
             {mutation.isPending ? 'Please wait…' : isLogin ? 'Log in' : 'Create account'}
           </Button>
+
+          <div className="flex items-center gap-3 py-1" aria-hidden="true">
+            <span className="h-px flex-1 bg-[var(--border)]" />
+            <span className="text-xs font-medium text-[var(--text-muted)]">or</span>
+            <span className="h-px flex-1 bg-[var(--border)]" />
+          </div>
+          <Button type="button" variant="secondary" fullWidth size="lg" onClick={continueWithGoogle} disabled={mutation.isPending}>
+            <span className="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#4285F4]">G</span>
+            Continue with Google
+          </Button>
         </form>
 
-        {/* Cross-link */}
         <p className="mt-6 text-center text-sm text-[var(--text-muted)]">
           {isLogin ? (
             <>
@@ -182,7 +191,7 @@ export default function AuthForm({ mode = 'login', onAuthenticated }) {
             </>
           )}
         </p>
-      </div>
+      </section>
     </div>
   )
 }

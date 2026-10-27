@@ -10,7 +10,9 @@ import AnalyticsPanel from './components/analytics/AnalyticsPanel'
 import SubscriptionPanel from './components/subscription/SubscriptionPanel'
 import ExpiredPage from './components/ui/ExpiredPage'
 import TopBar from './components/layout/TopBar'
-import Sidebar from './components/layout/Sidebar'
+import SettingsPanel from './components/settings/SettingsPanel'
+import ProfilePanel from './components/profile/ProfilePanel'
+import PasswordResetForm from './components/auth/PasswordResetForm'
 
 export default function App() {
   const queryClient = useQueryClient()
@@ -46,13 +48,18 @@ export default function App() {
         <Route path="/" element={<LandingHeroWrapper />} />
         <Route path="/login" element={<LoginPageWrapper />} />
         <Route path="/signup" element={<SignupPageWrapper />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       </Route>
 
       <Route element={<ProtectedRoute user={user} />}>
         <Route element={<AppShell user={user} onLogout={() => logout.mutate()} loggingOut={logout.isPending} />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/dashboard/analytics/:id" element={<AnalyticsPage />} />
+          <Route path="/analytics" element={<AnalyticsIndex />} />
           <Route path="/subscription" element={<SubscriptionPanel />} />
+          <Route path="/profile" element={<ProfilePanel user={user} />} />
+          <Route path="/settings" element={<SettingsPanel user={user} onLogout={() => logout.mutate()} loggingOut={logout.isPending} />} />
         </Route>
       </Route>
 
@@ -116,23 +123,24 @@ function SignupPageWrapper() {
   )
 }
 
-function AppShell({ user, onLogout, loggingOut }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+function ForgotPasswordPage() {
+  return <AuthPage><PasswordResetForm mode="request" /></AuthPage>
+}
 
+function ResetPasswordPage() {
+  const { token } = useParams()
+  return <AuthPage><PasswordResetForm mode="reset" token={token} /></AuthPage>
+}
+
+function AuthPage({ children }) {
+  return <div className="flex min-h-screen items-center justify-center bg-[var(--bg-base)] px-4 py-10">{children}</div>
+}
+
+function AppShell({ user, onLogout, loggingOut }) {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg-base)]">
-      <TopBar
-        user={user}
-        onLogout={onLogout}
-        loggingOut={loggingOut}
-        onToggleSidebar={() => setSidebarOpen((o) => !o)}
-      />
-      <div className="flex min-h-0 flex-1">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
-          <Outlet />
-        </main>
-      </div>
+      <TopBar user={user} onLogout={onLogout} loggingOut={loggingOut} />
+      <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8"><Outlet /></main>
     </div>
   )
 }
@@ -161,11 +169,7 @@ function DashboardPage() {
 
   return (
     <div className="mx-auto grid max-w-6xl gap-6">
-      <ShortenForm
-        activeCount={activeCount}
-        maxActive={MAX_ACTIVE_URLS}
-        onCreated={() => queryClient.invalidateQueries({ queryKey: ['urls'] })}
-      />
+      <div id="shorten" className="scroll-mt-24"><ShortenForm activeCount={activeCount} maxActive={MAX_ACTIVE_URLS} onCreated={() => queryClient.invalidateQueries({ queryKey: ['urls'] })} /></div>
       {urlsQuery.isLoading ? (
         <p className="text-sm text-[var(--text-muted)]">Loading your links…</p>
       ) : urlsQuery.error ? (
@@ -183,6 +187,15 @@ function DashboardPage() {
       )}
     </div>
   )
+}
+
+function AnalyticsIndex() {
+  const navigate = useNavigate()
+  const urlsQuery = useQuery({ queryKey: ['urls'], queryFn: async () => (await api('/api/url/myurls')).data })
+  if (urlsQuery.isLoading) return <p className="text-sm text-[var(--text-muted)]">Loading your links…</p>
+  if (urlsQuery.error) return <p className="rounded-md border border-[var(--danger)] bg-[var(--danger-muted)] px-4 py-3 text-sm text-[var(--danger)]">{urlsQuery.error.message}</p>
+  const urls = urlsQuery.data || []
+  return <section className="mx-auto max-w-4xl"><h1 className="text-xl font-bold text-[var(--text-primary)]">Analytics</h1><p className="mt-1 text-sm text-[var(--text-secondary)]">Choose a link to explore clicks, visitors, and engagement details.</p>{urls.length === 0 ? <p className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 text-sm text-[var(--text-secondary)]">Create a short link first to begin collecting analytics.</p> : <div className="mt-6 grid gap-3 sm:grid-cols-2">{urls.map((url) => <button key={url._id} type="button" onClick={() => navigate(`/dashboard/analytics/${url._id}`)} className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 text-left hover:border-[var(--accent)] hover:bg-[var(--accent-muted)]"><p className="truncate font-mono text-sm font-semibold text-[var(--accent)]">{url.shortCode || url.shortUrl}</p><p className="mt-2 truncate text-sm text-[var(--text-secondary)]">{url.originalUrl}</p><p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">{url.clicks || 0} clicks</p></button>)}</div>}</section>
 }
 
 function AnalyticsPage() {

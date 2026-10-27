@@ -5,7 +5,7 @@ const { Schema } = require("mongoose");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 require('dotenv').config();
-const { FREE_URL_LIMIT } = process.env;
+const { FREE_URL_LIMIT } = require("../constant/freeUrlLimit");
 
 const userSchema = new Schema({
     username: {
@@ -21,6 +21,12 @@ const userSchema = new Schema({
         unique: true,
         lowercase: true,
     },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true,
+        default: undefined,
+    },
     password: {
         type: String,
         required: true,
@@ -34,6 +40,16 @@ const userSchema = new Schema({
         type: String,
         default: "",
     },
+    passwordResetToken: {
+        type: String,
+        default: "",
+        select: false,
+    },
+    passwordResetExpiresAt: {
+        type: Date,
+        default: null,
+        select: false,
+    },
     avatar: {
         type: String,
         default: "",
@@ -42,7 +58,7 @@ const userSchema = new Schema({
         type: Number,
         default: 0,
         min: 0,
-        max: parseInt(FREE_URL_LIMIT)
+        max: FREE_URL_LIMIT
     }
 }, { timestamps: true })
 

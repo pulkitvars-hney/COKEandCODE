@@ -47,11 +47,7 @@ function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? 'border-b border-[var(--border)] bg-[var(--bg-base)]/80 backdrop-blur-xl'
-          : 'bg-transparent'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 border-b border-[var(--border)] bg-[var(--bg-surface)]/95 shadow-sm shadow-[var(--text-primary)]/5 backdrop-blur-xl transition-all duration-300 ${scrolled ? 'shadow-md shadow-[var(--text-primary)]/10' : ''}`}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5 sm:px-8">
         <Link to="/" className="flex items-center gap-2.5">

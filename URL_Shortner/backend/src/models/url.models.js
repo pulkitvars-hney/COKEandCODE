@@ -47,4 +47,10 @@ const urlSchema = new mongoose.Schema({
     }
 
 }, { timestamps: true })
+
+// Compound index for the every-minute expiry sweep and any {status, expiresAt}
+// filter on active/unexpired URLs. The standalone status/expiresAt indexes stay
+// (other queries filter each field with different leading keys).
+urlSchema.index({ status: 1, expiresAt: 1 });
+
 module.exports = mongoose.model("Url", urlSchema);
