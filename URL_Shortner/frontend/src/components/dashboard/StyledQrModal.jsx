@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
@@ -13,6 +13,12 @@ export default function StyledQrModal({ link, onClose }) {
   const [foregroundColor, setForegroundColor] = useState('#111827')
   const [backgroundColor, setBackgroundColor] = useState('#FFFFFF')
   const [qrCode, setQrCode] = useState(null)
+  const [creating, setCreating] = useState(false)
+
+  const saved = useQuery({
+    queryKey: ['styledQrCodes', link._id],
+    queryFn: async () => (await api(`/api/url/${link._id}/qr/styled`)).data.qrCodes,
+  })
 
   const generate = useMutation({
     mutationFn: () => api(`/api/url/${link._id}/qr/styled`, {
@@ -22,13 +28,17 @@ export default function StyledQrModal({ link, onClose }) {
     onSuccess: (response) => setQrCode(response.data.qrCode),
   })
 
+  const savedQrCode = saved.data?.[saved.data.length - 1]
+  const visibleQrCode = qrCode || (!creating ? savedQrCode : null)
+
   return (
     <Modal open={Boolean(link)} onClose={onClose} title="Styled QR code" className="max-w-lg">
-      {qrCode ? (
+      {saved.isLoading ? <p className="text-sm text-[var(--text-muted)]">Loading saved QR designs…</p> : visibleQrCode ? (
         <div className="space-y-4">
-          <img src={qrCode.url} alt={`Styled QR code for ${link.shortCode}`} className="mx-auto aspect-square w-full max-w-sm rounded-md border border-[var(--border)]" />
+          <img src={visibleQrCode.url} alt={`Styled QR code for ${link.shortCode}`} className="mx-auto aspect-square w-full max-w-sm" />
           <div className="flex justify-end gap-2">
-            <a href={qrCode.url} download="shortly-styled-qr.png" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">Download PNG</a>
+            <button type="button" onClick={() => { setCreating(true); setQrCode(null) }} className="inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">Create another</button>
+            <a href={visibleQrCode.url} download="shortly-styled-qr.png" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-md border border-[var(--border)] px-3 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-hover)]">Download PNG</a>
             <Button type="button" onClick={onClose}>Done</Button>
           </div>
         </div>

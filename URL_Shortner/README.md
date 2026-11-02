@@ -79,7 +79,9 @@ An authenticated owner can `POST /api/url/:id/qr` to create a standard PNG QR co
 
 Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` only in the backend deployment environment. Never expose the API secret to the frontend or commit it.
 
-`POST /api/url/:id/qr/styled` additionally creates a validated styled QR. It accepts optional `style` (`minimal`, `geometric`, `nature`, or `abstract`), a 160-character `prompt`, and hexadecimal foreground/background colors. Cloudflare Workers AI generates only the decorative background; the server generates and decodes the real QR before upload. Configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and optionally `CLOUDFLARE_AI_MODEL`. A provider outage, quota limit, malformed artwork, or failed scan returns a safe `503` and no asset is stored.
+`POST /api/url/:id/qr/styled` additionally creates a validated styled QR. It accepts optional `style` (`minimal`, `geometric`, `nature`, or `abstract`), a 160-character `prompt`, and hexadecimal foreground/background colors. Cloudflare Workers AI generates the complete decorative artwork; the server softly lightens only the QR center, then generates and decodes the compact QR before upload. Saved variants are keyed by normalized configuration and are reused; `GET /api/url/:id/qr/styled` loads them for the dashboard. Configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and optionally `CLOUDFLARE_AI_MODEL`. A provider outage, quota limit, malformed artwork, or failed scan returns a safe `503` and no asset is stored.
+
+QR light modules are transparent over the clean canvas rather than placed on a separate panel. If decoding fails, the server retries once using a known high-contrast full-canvas composition; it never uploads an unvalidated image.
 
 ## Redirect and analytics flow
 

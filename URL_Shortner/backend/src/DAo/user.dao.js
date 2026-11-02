@@ -41,7 +41,7 @@ const { FREE_URL_LIMIT } = require("../constant/freeUrlLimit");
     },
     {
         session,
-        new:true
+        returnDocument: "after"
     }
     );
 }

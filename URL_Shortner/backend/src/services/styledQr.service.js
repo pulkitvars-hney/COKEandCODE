@@ -10,8 +10,7 @@ const { getCloudinary } = require("../config/cloudinary");
 const ApiError = require("../utils/ApiError");
 
 const SIZE = 800;
-const PANEL_SIZE = 640;
-const QR_SIZE = 560;
+const QR_SIZE = 380;
 const LOCK_MS = 30_000;
 const styles = {
     minimal: "minimal clean geometric background",
@@ -21,6 +20,12 @@ const styles = {
 };
 
 const wait = () => new Promise((resolve) => setTimeout(resolve, 50));
+const normalizeOptions = (options) => ({
+    ...options,
+    prompt: options.prompt.trim(),
+    foregroundColor: options.foregroundColor.toUpperCase(),
+    backgroundColor: options.backgroundColor.toUpperCase(),
+});
 const publicIdFor = (id, options) => `shortly/styled-qr/${id}/${crypto.createHash("sha256").update(JSON.stringify(options)).digest("hex").slice(0, 12)}`;
 
 const sameStyle = (qrCode, shortUrl, options) => qrCode
@@ -40,7 +45,7 @@ const getArtwork = async (options) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
-        const prompt = `${styles[options.style]}. ${options.prompt || ""}. Decorative QR code background only, no text, no QR code, no grid pattern.`;
+        const prompt = `${styles[options.style]}. ${options.prompt || "subtle complementary border artwork"}. Keep the center calm and suitable for a QR overlay. Decorative artwork only, no text, no QR code, no grid pattern.`;
         const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -62,21 +67,34 @@ const getArtwork = async (options) => {
     }
 };
 
-// Artwork is only a frame. The separately generated QR panel keeps every
-// module and its quiet zone unchanged, which makes scanning reliable.
-const composeQr = async (artwork, shortUrl, options) => {
+// Use the complete artwork and only soften the center. This keeps the design
+// cohesive while giving the transparent quiet zone enough contrast to scan.
+const composeQr = async (artwork, shortUrl, options, forceReadable = false) => {
+    const colors = forceReadable
+        ? { foregroundColor: "#111827", backgroundColor: "#FFFFFF" }
+        : options;
     const qr = await QRCode.toBuffer(shortUrl, {
         type: "png", width: QR_SIZE, margin: 4,
         errorCorrectionLevel: "M",
-        color: { dark: options.foregroundColor, light: options.backgroundColor },
+        // Transparent light modules let the clean canvas show through. The
+        // QR modules themselves stay fully opaque and sharp.
+        color: { dark: colors.foregroundColor, light: "#00000000" },
     });
-    const background = artwork
-        ? await sharp(artwork).resize(SIZE, SIZE, { fit: "cover" }).modulate({ brightness: 0.7 }).png().toBuffer()
-        : await sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: options.backgroundColor } }).png().toBuffer();
-    const panel = Buffer.from(`<svg width="${PANEL_SIZE}" height="${PANEL_SIZE}"><rect width="100%" height="100%" rx="24" fill="${options.backgroundColor}"/></svg>`);
-    return sharp(background).composite([
-        { input: panel, top: 80, left: 80 },
-        { input: qr, top: 120, left: 120 },
+    const base = artwork
+        ? sharp(artwork).resize(SIZE, SIZE, { fit: "cover", position: "centre" })
+        : sharp({ create: { width: SIZE, height: SIZE, channels: 4, background: colors.backgroundColor } });
+    const opacity = forceReadable ? "0.98" : "0.78";
+    const center = Buffer.from(`<svg width="${SIZE}" height="${SIZE}">
+        <defs><radialGradient id="quiet" cx="50%" cy="50%" r="40%">
+          <stop offset="0%" stop-color="${colors.backgroundColor}" stop-opacity="${opacity}"/>
+          <stop offset="72%" stop-color="${colors.backgroundColor}" stop-opacity="${opacity}"/>
+          <stop offset="100%" stop-color="${colors.backgroundColor}" stop-opacity="0"/>
+        </radialGradient></defs>
+        <circle cx="400" cy="400" r="300" fill="url(#quiet)"/>
+      </svg>`);
+    return base.composite([
+        { input: center },
+        { input: qr, left: 210, top: 210 },
     ]).png().toBuffer();
 };
 
@@ -101,11 +119,20 @@ const responseData = (url, shortUrl) => ({
     qrCode: { url: url.styledQrCode.url, publicId: url.styledQrCode.publicId, format: url.styledQrCode.format, style: url.styledQrCode.style },
 });
 
-const getOrCreateStyledQrCode = async (urlId, userId, options) => {
+const savedVariants = (url, shortUrl) => {
+    const variants = url.styledQrCodes || [];
+    // Existing QR-02 styled records remain discoverable after this upgrade.
+    if (variants.length === 0 && url.styledQrCode?.shortUrl === shortUrl) return [url.styledQrCode];
+    return variants;
+};
+
+const getOrCreateStyledQrCode = async (urlId, userId, input) => {
+    const options = normalizeOptions(input);
     let url = await UrlDao.getUrlById(urlId);
     assertEligibleOwnedUrl(url, userId, new Date());
     const shortUrl = buildShortUrl(url.shortUrl);
-    if (sameStyle(url.styledQrCode, shortUrl, options)) return { created: false, data: responseData(url, shortUrl) };
+    const cached = savedVariants(url, shortUrl).find((variant) => sameStyle(variant, shortUrl, options));
+    if (cached) return { created: false, data: responseData({ ...url.toObject(), styledQrCode: cached }, shortUrl) };
 
     const token = crypto.randomUUID();
     const locked = await UrlDao.acquireStyledQrCodeGeneration(url._id, userId, token, new Date(), new Date(Date.now() - LOCK_MS));
@@ -114,7 +141,8 @@ const getOrCreateStyledQrCode = async (urlId, userId, options) => {
             await wait();
             url = await UrlDao.getUrlById(urlId);
             assertEligibleOwnedUrl(url, userId, new Date());
-            if (sameStyle(url.styledQrCode, shortUrl, options)) return { created: false, data: responseData(url, shortUrl) };
+            const waitingCache = savedVariants(url, shortUrl).find((variant) => sameStyle(variant, shortUrl, options));
+            if (waitingCache) return { created: false, data: responseData({ ...url.toObject(), styledQrCode: waitingCache }, shortUrl) };
         }
         throw new ApiError(503, "Styled QR generation is temporarily unavailable");
     }
@@ -124,19 +152,16 @@ const getOrCreateStyledQrCode = async (urlId, userId, options) => {
     try {
         const artwork = await getArtwork(options);
         let image = await composeQr(artwork, shortUrl, options);
-        // A plain background is the only fallback: it retains a verifiable QR
-        // without asking AI to alter the code pattern.
-        if (!await verifyQr(image, shortUrl)) image = await composeQr(null, shortUrl, options);
+        // Keep the same artwork on retry; only strengthen its local quiet area.
+        if (!await verifyQr(image, shortUrl)) image = await composeQr(artwork, shortUrl, options, true);
         if (!await verifyQr(image, shortUrl)) throw new ApiError(503, "Unable to create a scannable QR code");
 
         const asset = await uploadPng(image, assetId);
         uploaded = true;
         if (!asset?.secure_url?.startsWith("https://")) throw new Error("Cloudinary did not return a secure URL");
         const styledQrCode = { publicId: asset.public_id || assetId, url: asset.secure_url, format: asset.format || "png", shortUrl, ...options, generatedAt: new Date() };
-        const previousId = url.styledQrCode?.publicId;
         const updated = await UrlDao.saveStyledQrCode(url._id, userId, token, styledQrCode);
         if (!updated) throw new Error("Styled QR generation lock was lost");
-        if (previousId && previousId !== styledQrCode.publicId) destroy(previousId).catch((error) => console.error("Old styled QR cleanup failed", error));
         return { created: true, data: responseData(updated, shortUrl) };
     } catch (error) {
         if (uploaded && await UrlDao.hasStyledQrCodeLock(url._id, userId, token).catch(() => false)) {
@@ -149,4 +174,16 @@ const getOrCreateStyledQrCode = async (urlId, userId, options) => {
     }
 };
 
-module.exports = { getOrCreateStyledQrCode, composeQr, verifyQr, getArtwork };
+const getStyledQrCodes = async (urlId, userId) => {
+    const url = await UrlDao.getUrlById(urlId);
+    assertEligibleOwnedUrl(url, userId, new Date());
+    const shortUrl = buildShortUrl(url.shortUrl);
+    return { shortUrl, qrCodes: savedVariants(url, shortUrl).map((qrCode) => ({
+        url: qrCode.url, publicId: qrCode.publicId, format: qrCode.format,
+        style: qrCode.style, prompt: qrCode.prompt,
+        foregroundColor: qrCode.foregroundColor, backgroundColor: qrCode.backgroundColor,
+        generatedAt: qrCode.generatedAt,
+    })) };
+};
+
+module.exports = { getOrCreateStyledQrCode, getStyledQrCodes, composeQr, verifyQr, getArtwork };

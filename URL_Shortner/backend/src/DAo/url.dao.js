@@ -128,7 +128,7 @@ const acquireStyledQrCodeGeneration = async (id, userId, token, startedAt, stale
 const saveStyledQrCode = async (id, userId, token, styledQrCode) => {
     return urlschema.findOneAndUpdate(
         { _id: id, userId, "styledQrCodeGeneration.token": token },
-        { $set: { styledQrCode }, $unset: { styledQrCodeGeneration: "" } },
+        { $set: { styledQrCode }, $push: { styledQrCodes: styledQrCode }, $unset: { styledQrCodeGeneration: "" } },
         { returnDocument: "after" }
     );
 };

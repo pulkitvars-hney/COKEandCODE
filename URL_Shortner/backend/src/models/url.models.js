@@ -88,6 +88,12 @@ const urlSchema = new mongoose.Schema({
         type: styledQrCodeSchema,
         default: null,
     },
+    // Each configuration is retained independently. `styledQrCode` remains as
+    // the most recent legacy-compatible record for existing clients.
+    styledQrCodes: {
+        type: [styledQrCodeSchema],
+        default: [],
+    },
     styledQrCodeGeneration: {
         type: qrCodeGenerationSchema,
         default: undefined,

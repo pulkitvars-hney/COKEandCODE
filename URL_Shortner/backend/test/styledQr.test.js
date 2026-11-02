@@ -5,6 +5,7 @@ jest.setTimeout(30_000);
 const { Writable } = require("stream");
 const request = require("supertest");
 const sharp = require("sharp");
+const QRCode = require("qrcode");
 const app = require("../src/app");
 const Url = require("../src/models/url.models");
 const UrlDao = require("../src/DAo/url.dao");
@@ -47,6 +48,19 @@ describe("styled QR API", () => {
         const image = await composeQr(null, shortUrl, { foregroundColor: "#111827", backgroundColor: "#FFFFFF" });
         expect(await verifyQr(image, shortUrl)).toBe(true);
     }, 20_000);
+
+    test("keeps a transparent QR scannable over perimeter artwork", async () => {
+        const shortUrl = "http://localhost:3000/api/perimeter";
+        const artwork = await sharp({ create: { width: 80, height: 80, channels: 3, background: "#f97316" } }).png().toBuffer();
+        const image = await composeQr(artwork, shortUrl, { foregroundColor: "#111827", backgroundColor: "#FFFFFF" });
+        expect(await verifyQr(image, shortUrl)).toBe(true);
+    }, 20_000);
+
+    test("keeps QR light modules transparent", async () => {
+        const qr = await QRCode.toBuffer("http://localhost:3000/api/alpha", { type: "png", width: 200, margin: 4, color: { dark: "#111827", light: "#00000000" } });
+        const { data } = await sharp(qr).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        expect(data.some((_value, index) => index % 4 === 3 && data[index] === 0)).toBe(true);
+    });
 
     test("generates and persists a styled QR for the owner", async () => {
         const cookie = await login();
@@ -92,5 +106,19 @@ describe("styled QR API", () => {
         expect(failed.statusCode).toBe(503);
         expect(cloudinary.uploader.destroy).toHaveBeenCalled();
         expect((await Url.findById(nextUrl._id)).styledQrCode).toBeNull();
+    });
+
+    test("keeps independent variants and lists them without generating again", async () => {
+        const cookie = await login();
+        const url = await createUrl(cookie, "styled-variants");
+        const first = { style: "minimal", prompt: "party balloons", foregroundColor: "#111827", backgroundColor: "#FFFFFF" };
+        const second = { ...first, style: "geometric" };
+        expect((await request(app).post(`/api/url/${url._id}/qr/styled`).set("Cookie", cookie).send(first)).statusCode).toBe(201);
+        expect((await request(app).post(`/api/url/${url._id}/qr/styled`).set("Cookie", cookie).send(first)).statusCode).toBe(200);
+        expect((await request(app).post(`/api/url/${url._id}/qr/styled`).set("Cookie", cookie).send(second)).statusCode).toBe(201);
+        const stored = await request(app).get(`/api/url/${url._id}/qr/styled`).set("Cookie", cookie);
+        expect(stored.statusCode).toBe(200);
+        expect(stored.body.data.qrCodes).toHaveLength(2);
+        expect(upload).toHaveBeenCalledTimes(2);
     });
 });
