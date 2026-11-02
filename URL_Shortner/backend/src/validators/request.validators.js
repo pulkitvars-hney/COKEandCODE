@@ -18,6 +18,13 @@ const urlIdParamsSchema = z.object({
     id: objectId,
 });
 
+const styledQrCodeSchema = z.object({
+    prompt: z.string().trim().max(160, "Prompt must be 160 characters or fewer").optional().default(""),
+    style: z.enum(["minimal", "geometric", "nature", "abstract"]).optional().default("minimal"),
+    foregroundColor: z.string().regex(/^#[a-f\d]{6}$/i, "foregroundColor must be a hex color").optional().default("#111827"),
+    backgroundColor: z.string().regex(/^#[a-f\d]{6}$/i, "backgroundColor must be a hex color").optional().default("#FFFFFF"),
+}).strict();
+
 // Account upgrade is the only supported plan change until payments exist.
 // A missing or arbitrary plan previously replaced subscriptions silently.
 const upgradeSubscriptionSchema = z.object({
@@ -49,4 +56,5 @@ module.exports = {
     analyticsUrlIdParamsSchema,
     analyticsOverviewQuerySchema,
     recentClicksQuerySchema,
+    styledQrCodeSchema,
 };

@@ -40,6 +40,8 @@ The React client uses React Query for session state, mutations, and the user's s
 | POST | `/api/auth/logout` | End the active session |
 | POST | `/api/auth/refresh-token` | Refresh access and refresh cookies |
 | POST | `/api/url/create` | Create a short URL (authenticated) |
+| POST | `/api/url/:id/qr` | Generate or retrieve a QR PNG for an owned active URL (authenticated) |
+| POST | `/api/url/:id/qr/styled` | Generate or retrieve a scan-verified AI-styled QR PNG (authenticated) |
 | GET | `/api/url/myurls` | List the current user's URLs (authenticated) |
 | DELETE | `/api/url/:id` | Delete one of the current user's URLs (authenticated) |
 | POST | `/api/url/:id/upgrade` | Upgrade one owned Free URL to Pro (active Pro subscription required) |
@@ -70,6 +72,14 @@ Example authenticated creation request with a custom alias:
 Aliases are optional, 3–30 characters long, and may contain letters, numbers, hyphens, and underscores. Reserved aliases such as `api`, `login`, `signup`, `auth`, `admin`, and `health` are rejected. If no alias is supplied, the server generates a unique seven-character NanoID.
 
 The analytics overview accepts `day`, `week`, `month`, or `year` as its optional `interval`. It returns total clicks, unique and repeat visitor counts, a click timeline, and country/browser/device/OS breakdowns.
+
+## QR codes
+
+An authenticated owner can `POST /api/url/:id/qr` to create a standard PNG QR code for an active, unexpired link. The code encodes the canonical short URL, so scans continue through the normal redirect and analytics flow. QR images are stored in Cloudinary and the URL document retains only the returned secure URL, public ID, format, encoded short URL, and generation time. A valid stored asset is reused on later requests.
+
+Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` only in the backend deployment environment. Never expose the API secret to the frontend or commit it.
+
+`POST /api/url/:id/qr/styled` additionally creates a validated styled QR. It accepts optional `style` (`minimal`, `geometric`, `nature`, or `abstract`), a 160-character `prompt`, and hexadecimal foreground/background colors. Cloudflare Workers AI generates only the decorative background; the server generates and decodes the real QR before upload. Configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and optionally `CLOUDFLARE_AI_MODEL`. A provider outage, quota limit, malformed artwork, or failed scan returns a safe `503` and no asset is stored.
 
 ## Redirect and analytics flow
 

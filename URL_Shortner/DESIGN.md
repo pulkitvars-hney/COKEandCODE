@@ -832,3 +832,7 @@ All components have been updated to use the shared UI primitives (`Button`, `Inp
 ---
 
 *This document is the source of truth for frontend design decisions. When in conflict with existing code, this document wins. Update this file when design decisions change.*
+
+## 24. Styled QR modal
+
+The dashboard URL-row action opens a standard `Modal` for styled QR generation. It uses the existing form controls, restrained application colors, and no decorative UI treatment. The generated image is shown inside the modal with one clear download action; repeated submission is disabled while generation is in progress.

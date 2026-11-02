@@ -7,6 +7,8 @@ const AnalyticsService = require("../services/analytic.service");
 const UAParser = require("ua-parser-js");
 const crypto = require("crypto");
 const { getLocationFromIp } = require("../utils/geoip.helper");
+const { getOrCreateQrCode } = require("../services/qr.service");
+const { getOrCreateStyledQrCode } = require("../services/styledQr.service");
 async function createShortUrl(req, res) {
     const { originalUrl, alias } = req.body;
     // `req.body` is an object such as { originalUrl: "https://example.com" }.
@@ -77,4 +79,24 @@ async function upgrademyurls(req, res) {
     return res.status(200).json(new ApiResponse(200, summary, "Eligible URLs upgraded to Pro"));
 }
 
-module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl, upgrademyurl, upgrademyurls };
+async function generateQrCode(req, res) {
+    const result = await getOrCreateQrCode(req.params.id, req.user._id);
+    return res.status(result.created ? 201 : 200).json(
+        new ApiResponse(
+            result.created ? 201 : 200,
+            result.data,
+            result.created ? "QR code generated successfully" : "QR code fetched successfully"
+        )
+    );
+}
+
+async function generateStyledQrCode(req, res) {
+    const result = await getOrCreateStyledQrCode(req.params.id, req.user._id, req.body);
+    return res.status(result.created ? 201 : 200).json(new ApiResponse(
+        result.created ? 201 : 200,
+        result.data,
+        result.created ? "Styled QR code generated successfully" : "Styled QR code fetched successfully"
+    ));
+}
+
+module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl, upgrademyurl, upgrademyurls, generateQrCode, generateStyledQrCode };

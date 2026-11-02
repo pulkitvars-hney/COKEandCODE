@@ -88,6 +88,46 @@ const definition = {
         "/api/url/myurls": {
             get: { tags: ["URLs"], summary: "List the current user's URLs", security: [{ bearerAuth: [] }], responses: { 200: { description: "Saved URLs" }, 401: { description: "Authentication required" } } },
         },
+        "/api/url/{id}/qr": {
+            post: {
+                tags: ["URLs"],
+                summary: "Generate or retrieve a QR PNG for an owned active URL",
+                security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                responses: {
+                    200: { description: "Existing QR code returned" },
+                    201: { description: "QR code generated and stored" },
+                    400: { description: "Invalid URL ID" },
+                    401: { description: "Authentication required" },
+                    403: { description: "URL belongs to another user" },
+                    404: { description: "URL not found" },
+                    409: { description: "URL is not active" },
+                    503: { description: "QR provider unavailable" },
+                },
+            },
+        },
+        "/api/url/{id}/qr/styled": {
+            post: {
+                tags: ["URLs"], summary: "Generate or retrieve an AI-styled QR PNG for an owned active URL", security: [{ bearerAuth: [] }],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    prompt: { type: "string", maxLength: 160 },
+                                    style: { type: "string", enum: ["minimal", "geometric", "nature", "abstract"] },
+                                    foregroundColor: { type: "string", example: "#111827" },
+                                    backgroundColor: { type: "string", example: "#FFFFFF" },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: { 200: { description: "Existing matching styled QR returned" }, 201: { description: "Styled QR generated" }, 400: { description: "Invalid request" }, 401: { description: "Authentication required" }, 403: { description: "URL belongs to another user" }, 409: { description: "URL is not active" }, 503: { description: "AI, validation, or storage service unavailable" } },
+            },
+        },
         "/api/url/{id}": {
             delete: { tags: ["URLs"], summary: "Delete an owned URL", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { 200: { description: "URL deleted" }, 403: { description: "URL belongs to another user" }, 404: { description: "URL not found" } } },
         },

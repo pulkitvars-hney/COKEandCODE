@@ -4,7 +4,7 @@ import Badge from '../ui/Badge'
 import CopyButton from '../ui/CopyButton'
 import EmptyState from '../ui/EmptyState'
 
-export default function LinkList({ urls, onDelete, onSelectAnalytics, deletingId }) {
+export default function LinkList({ urls, onDelete, onSelectAnalytics, onStyledQr, deletingId }) {
   if (!urls?.length) {
     return (
       <EmptyState
@@ -41,6 +41,7 @@ export default function LinkList({ urls, onDelete, onSelectAnalytics, deletingId
               deleting={deletingId === item._id}
               onDelete={() => onDelete(item._id)}
               onAnalytics={() => onSelectAnalytics(item)}
+              onStyledQr={() => onStyledQr(item)}
             />
           ))}
         </Tbody>
@@ -49,7 +50,7 @@ export default function LinkList({ urls, onDelete, onSelectAnalytics, deletingId
   )
 }
 
-function LinkRow({ item, deleting, onDelete, onAnalytics }) {
+function LinkRow({ item, deleting, onDelete, onAnalytics, onStyledQr }) {
   const active = isActiveUrl(item)
   const expiry = item.expiresAt ? new Date(item.expiresAt) : null
 
@@ -95,6 +96,13 @@ function LinkRow({ item, deleting, onDelete, onAnalytics }) {
             className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-[var(--accent)] transition-colors hover:bg-[var(--accent-muted)]"
           >
             Details
+          </button>
+          <button
+            type="button"
+            onClick={onStyledQr}
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-[var(--accent)] transition-colors hover:bg-[var(--accent-muted)]"
+          >
+            Styled QR
           </button>
           <button
             type="button"

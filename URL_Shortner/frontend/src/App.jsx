@@ -13,6 +13,7 @@ import TopBar from './components/layout/TopBar'
 import SettingsPanel from './components/settings/SettingsPanel'
 import ProfilePanel from './components/profile/ProfilePanel'
 import PasswordResetForm from './components/auth/PasswordResetForm'
+import StyledQrModal from './components/dashboard/StyledQrModal'
 
 export default function App() {
   const queryClient = useQueryClient()
@@ -149,6 +150,7 @@ function DashboardPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [deletingId, setDeletingId] = useState(null)
+  const [styledQrLink, setStyledQrLink] = useState(null)
 
   const urlsQuery = useQuery({
     queryKey: ['urls'],
@@ -183,8 +185,10 @@ function DashboardPage() {
           deletingId={deletingId}
           onDelete={(id) => deleteMutation.mutate(id)}
           onSelectAnalytics={(link) => navigate(`/dashboard/analytics/${link._id}`)}
+          onStyledQr={setStyledQrLink}
         />
       )}
+      {styledQrLink && <StyledQrModal link={styledQrLink} onClose={() => setStyledQrLink(null)} />}
     </div>
   )
 }
