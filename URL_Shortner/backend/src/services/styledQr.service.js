@@ -8,6 +8,7 @@ const { buildShortUrl } = require("./shorturlhelper.service");
 const { assertEligibleOwnedUrl } = require("./qr.service");
 const { getCloudinary } = require("../config/cloudinary");
 const ApiError = require("../utils/ApiError");
+const { reserveQrGeneration, completeQrGeneration, releaseQrGeneration } = require("./qrQuota.service");
 
 const SIZE = 800;
 const QR_SIZE = 380;
@@ -45,7 +46,10 @@ const getArtwork = async (options) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
-        const prompt = `${styles[options.style]}. ${options.prompt || "subtle complementary border artwork"}. Keep the center calm and suitable for a QR overlay. Decorative artwork only, no text, no QR code, no grid pattern.`;
+        const direction = options.prompt
+            ? `Treat this user direction as the primary creative brief: ${options.prompt}.`
+            : "Choose original motifs appropriate to the selected style; do not use celebration imagery unless requested.";
+        const prompt = `Square decorative artwork in a ${styles[options.style]} style. ${direction} Keep the center calm and suitable for a QR overlay. Decorative artwork only: no text, no QR code, no grid pattern.`;
         const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -149,7 +153,10 @@ const getOrCreateStyledQrCode = async (urlId, userId, input) => {
 
     const assetId = publicIdFor(url._id, options);
     let uploaded = false;
+    let quotaReservation;
     try {
+        // Matching saved variants return above, so only a new variant reserves quota.
+        quotaReservation = await reserveQrGeneration(userId);
         const artwork = await getArtwork(options);
         let image = await composeQr(artwork, shortUrl, options);
         // Keep the same artwork on retry; only strengthen its local quiet area.
@@ -162,12 +169,15 @@ const getOrCreateStyledQrCode = async (urlId, userId, input) => {
         const styledQrCode = { publicId: asset.public_id || assetId, url: asset.secure_url, format: asset.format || "png", shortUrl, ...options, generatedAt: new Date() };
         const updated = await UrlDao.saveStyledQrCode(url._id, userId, token, styledQrCode);
         if (!updated) throw new Error("Styled QR generation lock was lost");
+        await completeQrGeneration(userId, quotaReservation);
+        quotaReservation = null;
         return { created: true, data: responseData(updated, shortUrl) };
     } catch (error) {
         if (uploaded && await UrlDao.hasStyledQrCodeLock(url._id, userId, token).catch(() => false)) {
             try { await destroy(assetId); } catch (cleanupError) { console.error("Styled QR cleanup failed", cleanupError); }
         }
         await UrlDao.releaseStyledQrCodeGeneration(url._id, userId, token).catch((releaseError) => console.error("Styled QR lock release failed", releaseError));
+        await releaseQrGeneration(userId, quotaReservation).catch((releaseError) => console.error("Styled QR quota release failed", releaseError));
         if (error instanceof ApiError) throw error;
         console.error("Styled QR generation failed", error);
         throw new ApiError(503, "Styled QR service is unavailable");

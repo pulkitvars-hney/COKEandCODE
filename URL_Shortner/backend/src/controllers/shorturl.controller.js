@@ -9,6 +9,7 @@ const crypto = require("crypto");
 const { getLocationFromIp } = require("../utils/geoip.helper");
 const { getOrCreateQrCode } = require("../services/qr.service");
 const { getOrCreateStyledQrCode, getStyledQrCodes: fetchStyledQrCodes } = require("../services/styledQr.service");
+const { getQrGenerationUsage } = require("../services/qrQuota.service");
 async function createShortUrl(req, res) {
     const { originalUrl, alias } = req.body;
     // `req.body` is an object such as { originalUrl: "https://example.com" }.
@@ -104,4 +105,9 @@ async function getStyledQrCodes(req, res) {
     return res.status(200).json(new ApiResponse(200, data, "Styled QR codes fetched successfully"));
 }
 
-module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl, upgrademyurl, upgrademyurls, generateQrCode, generateStyledQrCode, getStyledQrCodes };
+async function getQrUsage(req, res) {
+    const data = await getQrGenerationUsage(req.user._id);
+    return res.status(200).json(new ApiResponse(200, data, "QR generation usage fetched successfully"));
+}
+
+module.exports = { createShortUrl, redirectShortUrl, fetchingmyurls, deletingmyurl, upgrademyurl, upgrademyurls, generateQrCode, generateStyledQrCode, getStyledQrCodes, getQrUsage };

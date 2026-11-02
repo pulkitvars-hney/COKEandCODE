@@ -8,6 +8,7 @@ const Url = require("../src/models/url.models");
 const UrlDao = require("../src/DAo/url.dao");
 const { getCloudinary } = require("../src/config/cloudinary");
 const ApiError = require("../src/utils/ApiError");
+const User = require("../src/models/user.model");
 
 const user = {
     username: "qr_test_user",
@@ -165,6 +166,26 @@ describe("QR code API", () => {
         expect(uploadStream).toHaveBeenCalledTimes(1);
     });
 
+    test("does not charge cached QR codes and blocks a new Free QR at the lifetime limit", async () => {
+        const cookie = await createAuthCookie();
+        const url = await createUrl(cookie, "qr-limit-reuse");
+        const first = await request(app).post(`/api/url/${url._id}/qr`).set("Cookie", cookie);
+        expect(first.statusCode).toBe(201);
+        const userRecord = await User.findOne({ email: user.email });
+        expect(userRecord.qrGenerationCount).toBe(1);
+
+        const cached = await request(app).post(`/api/url/${url._id}/qr`).set("Cookie", cookie);
+        expect(cached.statusCode).toBe(200);
+        expect((await User.findById(userRecord._id)).qrGenerationCount).toBe(1);
+
+        await User.updateOne({ _id: userRecord._id }, { $set: { qrGenerationCount: 10 } });
+        const nextUrl = await createUrl(cookie, "qr-limit-new");
+        const blocked = await request(app).post(`/api/url/${nextUrl._id}/qr`).set("Cookie", cookie);
+        expect(blocked.statusCode).toBe(403);
+        expect(blocked.body.message).toContain("Free QR generation limit reached");
+        expect(uploadStream).toHaveBeenCalledTimes(1);
+    });
+
     test("returns a sanitized 503 when Cloudinary is unavailable", async () => {
         const cookie = await createAuthCookie();
         const url = await createUrl(cookie);
@@ -181,6 +202,7 @@ describe("QR code API", () => {
     test("does not persist metadata when the upload fails", async () => {
         const cookie = await createAuthCookie();
         const url = await createUrl(cookie);
+        const userRecord = await User.findOne({ email: user.email });
         uploadStream.mockImplementationOnce((_options, callback) => {
             const stream = new Writable({ write(_chunk, _encoding, done) { done(); } });
             stream.on("finish", () => callback(new Error("provider unavailable")));
@@ -190,6 +212,8 @@ describe("QR code API", () => {
         const response = await request(app).post(`/api/url/${url._id}/qr`).set("Cookie", cookie);
         expect(response.statusCode).toBe(503);
         expect((await Url.findById(url._id)).qrCode).toBeNull();
+        expect((await User.findById(userRecord._id)).qrGenerationCount).toBe(0);
+        expect((await User.findById(userRecord._id)).qrGenerationReservations).toHaveLength(0);
     });
 
     test("cleans up a newly uploaded asset when persistence fails while holding the lock", async () => {

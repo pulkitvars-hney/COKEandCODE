@@ -5,6 +5,7 @@ const UrlDao = require("../DAo/url.dao");
 const { buildShortUrl } = require("./shorturlhelper.service");
 const { getCloudinary } = require("../config/cloudinary");
 const ApiError = require("../utils/ApiError");
+const { reserveQrGeneration, completeQrGeneration, releaseQrGeneration } = require("./qrQuota.service");
 
 const GENERATION_LOCK_MS = 30_000;
 const WAIT_ATTEMPTS = 20;
@@ -106,7 +107,10 @@ const getOrCreateQrCode = async (urlId, userId) => {
     }
 
     let uploaded = false;
+    let quotaReservation;
     try {
+        // Cached QR codes return above. Reserve only a genuinely new asset.
+        quotaReservation = await reserveQrGeneration(userId);
         const png = await QRCode.toBuffer(canonicalShortUrl, {
             type: "png",
             errorCorrectionLevel: "M",
@@ -131,6 +135,8 @@ const getOrCreateQrCode = async (urlId, userId) => {
         if (!updatedUrl) {
             throw new Error("QR code generation lock was lost");
         }
+        await completeQrGeneration(userId, quotaReservation);
+        quotaReservation = null;
         return { created: true, data: responseData(updatedUrl, canonicalShortUrl) };
     } catch (error) {
         // Only clean up while this request still owns the lock. That prevents a
@@ -151,6 +157,7 @@ const getOrCreateQrCode = async (urlId, userId) => {
         } catch (releaseError) {
             console.error("QR generation lock release failed", releaseError);
         }
+        await releaseQrGeneration(userId, quotaReservation).catch((releaseError) => console.error("QR quota release failed", releaseError));
 
         if (error instanceof ApiError) {
             throw error;

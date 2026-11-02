@@ -68,6 +68,9 @@ describe("styled QR API", () => {
         const response = await request(app).post(`/api/url/${url._id}/qr/styled`).set("Cookie", cookie).send({ style: "geometric", prompt: "silver lines", foregroundColor: "#111827", backgroundColor: "#FFFFFF" });
         expect(response.statusCode).toBe(201);
         expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining("/ai/run/@cf/black-forest-labs/flux-1-schnell"), expect.objectContaining({ method: "POST" }));
+        const artworkPrompt = JSON.parse(global.fetch.mock.calls[0][1].body).prompt;
+        expect(artworkPrompt).toContain("silver lines");
+        expect(artworkPrompt).not.toContain("party balloons");
         expect(upload).toHaveBeenCalledTimes(1);
         expect((await Url.findById(url._id)).styledQrCode).toEqual(expect.objectContaining({ style: "geometric", shortUrl: `http://localhost:3000/api/${url.shortUrl}` }));
     });
