@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 require('dotenv').config();
 const { FREE_URL_LIMIT } = require("../constant/freeUrlLimit");
+const { FREE_QR_LIMIT } = require("../constant/freeQrLimit");
 
 const userSchema = new Schema({
     username: {
@@ -59,6 +60,18 @@ const userSchema = new Schema({
         default: 0,
         min: 0,
         max: FREE_URL_LIMIT
+    },
+    // Successful Free QR creations are lifetime-limited. Reservations make
+    // concurrent provider calls count safely without charging failures.
+    qrGenerationCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: FREE_QR_LIMIT,
+    },
+    qrGenerationReservations: {
+        type: [String],
+        default: [],
     }
 }, { timestamps: true })
 

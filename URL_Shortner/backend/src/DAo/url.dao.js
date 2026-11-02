@@ -76,6 +76,69 @@ const findexpiredActiveUrls=async()=>{
     });
 };
 
+const acquireQrCodeGeneration = async (id, userId, token, startedAt, staleBefore) => {
+    return urlschema.findOneAndUpdate(
+        {
+            _id: id,
+            userId,
+            $or: [
+                { qrCodeGeneration: { $exists: false } },
+                { "qrCodeGeneration.startedAt": { $lt: staleBefore } },
+            ],
+        },
+        { $set: { qrCodeGeneration: { token, startedAt } } },
+        { returnDocument: "after" }
+    );
+};
+
+const saveQrCode = async (id, userId, token, qrCode) => {
+    return urlschema.findOneAndUpdate(
+        { _id: id, userId, "qrCodeGeneration.token": token },
+        {
+            $set: { qrCode },
+            $unset: { qrCodeGeneration: "" },
+        },
+        { returnDocument: "after" }
+    );
+};
+
+const isQrCodeGenerationLockHeld = async (id, userId, token) => {
+    return Boolean(await urlschema.exists({
+        _id: id,
+        userId,
+        "qrCodeGeneration.token": token,
+    }));
+};
+
+const releaseQrCodeGeneration = async (id, userId, token) => {
+    return urlschema.updateOne(
+        { _id: id, userId, "qrCodeGeneration.token": token },
+        { $unset: { qrCodeGeneration: "" } }
+    );
+};
+
+const acquireStyledQrCodeGeneration = async (id, userId, token, startedAt, staleBefore) => {
+    return urlschema.findOneAndUpdate(
+        { _id: id, userId, $or: [{ styledQrCodeGeneration: { $exists: false } }, { "styledQrCodeGeneration.startedAt": { $lt: staleBefore } }] },
+        { $set: { styledQrCodeGeneration: { token, startedAt } } },
+        { returnDocument: "after" }
+    );
+};
+
+const saveStyledQrCode = async (id, userId, token, styledQrCode) => {
+    return urlschema.findOneAndUpdate(
+        { _id: id, userId, "styledQrCodeGeneration.token": token },
+        { $set: { styledQrCode }, $push: { styledQrCodes: styledQrCode }, $unset: { styledQrCodeGeneration: "" } },
+        { returnDocument: "after" }
+    );
+};
+
+const hasStyledQrCodeLock = async (id, userId, token) => Boolean(await urlschema.exists({ _id: id, userId, "styledQrCodeGeneration.token": token }));
+
+const releaseStyledQrCodeGeneration = async (id, userId, token) => {
+    return urlschema.updateOne({ _id: id, userId, "styledQrCodeGeneration.token": token }, { $unset: { styledQrCodeGeneration: "" } });
+};
+
 const upgradeUrlById = async (urlId, userId, setData, session) => {
     // findOneAndUpdate, not findByIdAndUpdate: the filter is a condition
     // object (owner + eligibility), and findByIdAndUpdate would wrap the
@@ -126,5 +189,13 @@ module.exports = {
     countActiveUrlsByUser,
     upgradeUrlById,
     upgradeFreeUrlsByUserId,
-    findexpiredActiveUrls
+    findexpiredActiveUrls,
+    acquireQrCodeGeneration,
+    saveQrCode,
+    isQrCodeGenerationLockHeld,
+    releaseQrCodeGeneration,
+    acquireStyledQrCodeGeneration,
+    saveStyledQrCode,
+    hasStyledQrCodeLock,
+    releaseStyledQrCodeGeneration,
 };

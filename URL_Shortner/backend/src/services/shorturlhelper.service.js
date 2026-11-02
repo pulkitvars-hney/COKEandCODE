@@ -253,7 +253,7 @@ const CreateShortUrlwithuser = async (url, userid, alias) => {
 }
 
 const GetOriginalUrl = async (shortUrl) => {
-    return urlSchema.findOneAndUpdate({ shortUrl, status: "active", expiresAt: { $gt: new Date() } }, { $inc: { clicks: 1 } }, { new: true });
+    return urlSchema.findOneAndUpdate({ shortUrl, status: "active", expiresAt: { $gt: new Date() } }, { $inc: { clicks: 1 } }, { returnDocument: "after" });
 };
 
 const getMyUrls = async (userId) => {

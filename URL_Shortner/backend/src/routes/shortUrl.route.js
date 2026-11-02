@@ -3,7 +3,7 @@ const {verifyjwt}=require("../middlewares/auth.middleware")
 const shortUrlController = require('../controllers/shorturl.controller');
 const asyncHandler = require('../utils/asyncHandler');
 const { validate } = require("../middlewares/validate.middleware");
-const { createUrlSchema, urlIdParamsSchema } = require("../validators/request.validators");
+const { createUrlSchema, urlIdParamsSchema, styledQrCodeSchema } = require("../validators/request.validators");
 const router=express.Router();
 
 router.post("/api/url/create",verifyjwt, validate(createUrlSchema), asyncHandler(shortUrlController.createShortUrl));
@@ -12,4 +12,8 @@ router.get("/api/url/myurls",verifyjwt,asyncHandler(shortUrlController.fetchingm
 router.delete("/api/url/:id",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.deletingmyurl))
 router.post("/api/url/upgrade-all",verifyjwt,asyncHandler(shortUrlController.upgrademyurls))
 router.post("/api/url/:id/upgrade",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.upgrademyurl))
+router.post("/api/url/:id/qr",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.generateQrCode))
+router.get("/api/url/qr-usage",verifyjwt,asyncHandler(shortUrlController.getQrUsage))
+router.post("/api/url/:id/qr/styled",verifyjwt,validate(urlIdParamsSchema, "params"),validate(styledQrCodeSchema),asyncHandler(shortUrlController.generateStyledQrCode))
+router.get("/api/url/:id/qr/styled",verifyjwt,validate(urlIdParamsSchema, "params"),asyncHandler(shortUrlController.getStyledQrCodes))
 module.exports=router;
